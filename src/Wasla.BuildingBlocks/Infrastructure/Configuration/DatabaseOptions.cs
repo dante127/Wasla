@@ -1,6 +1,6 @@
-namespace Wasla.Api.Configuration;
+namespace Wasla.BuildingBlocks.Infrastructure.Configuration;
 
-/// <summary>PostgreSQL connection settings.</summary>
+/// <summary>PostgreSQL connection settings (section "Database").</summary>
 public sealed class DatabaseOptions
 {
     public const string SectionName = "Database";

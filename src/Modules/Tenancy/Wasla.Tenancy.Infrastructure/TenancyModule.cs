@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Infrastructure.Configuration;
+using Microsoft.Extensions.Options;
 using Wasla.Tenancy.Application;
 using Wasla.Tenancy.Application.Abstractions;
 using Wasla.Tenancy.Application.Contracts;
@@ -15,11 +17,10 @@ public sealed class TenancyModule : IModule
 {
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetSection("Database")["ConnectionString"]
-            ?? throw new InvalidOperationException("Database:ConnectionString is required.");
-
-        services.AddDbContext<TenancyDbContext>(options => options
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "tenancy")));
+        services.AddDbContext<TenancyDbContext>((serviceProvider, options) => options
+            .UseNpgsql(
+                serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString,
+                npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "tenancy")));
 
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<ITenantInfoProvider, TenantInfoProvider>();

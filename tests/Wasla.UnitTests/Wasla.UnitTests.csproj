@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Wasla.BuildingBlocks\Wasla.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Tenancy\Wasla.Tenancy.Domain\Wasla.Tenancy.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\Wasla.Identity.Domain\Wasla.Identity.Domain.csproj" />
   </ItemGroup>
 
 </Project>

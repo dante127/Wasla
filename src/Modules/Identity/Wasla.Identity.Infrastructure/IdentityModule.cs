@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Infrastructure.Configuration;
+using Microsoft.Extensions.Options;
 using Wasla.Identity.Application.Abstractions;
 using Wasla.Identity.Application.Auth;
 using Wasla.Identity.Application.Contracts;
@@ -21,18 +23,17 @@ public sealed class IdentityModule : IModule
 {
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetSection("Database")["ConnectionString"]
-            ?? throw new InvalidOperationException("Database:ConnectionString is required.");
-
-        services.AddOptions<JwtOptions>()
+                services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.SigningKey) && options.SigningKey.Length >= 32,
                 "Jwt:SigningKey is required and must be at least 32 characters.")
             .ValidateOnStart();
 
-        services.AddDbContext<IdentityDbContext>(options => options
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "identity")));
+        services.AddDbContext<IdentityDbContext>((serviceProvider, options) => options
+            .UseNpgsql(
+                serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString,
+                npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "identity")));
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IMembershipRepository, MembershipRepository>();

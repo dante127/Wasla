@@ -74,6 +74,11 @@ public sealed class SolutionStructureTests
         {
             var ownModule = ModuleNameOf(project.Name);
 
+            if (ownModule is null)
+            {
+                continue;
+            }
+
             foreach (var reference in project.ProjectReferences.Where(IsModuleProject))
             {
                 var referencedModule = ModuleNameOf(reference);

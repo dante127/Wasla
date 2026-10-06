@@ -22,6 +22,7 @@ using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Application.Security;
 using Wasla.BuildingBlocks.Infrastructure;
+using Wasla.BuildingBlocks.Infrastructure.Configuration;
 using Wasla.BuildingBlocks.Web;
 using Wasla.BuildingBlocks.Web.Permissions;
 using Wasla.Channels.Infrastructure;
@@ -94,25 +95,26 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IClock, SystemClock>();
 
 // ------------------------------------------------------- authN & authZ ------
-var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
-var signingKey = string.IsNullOrWhiteSpace(jwtOptions.SigningKey)
-    ? new string('x', 48) // replaced by startup validation (Jwt:SigningKey) with a clear failure
-    : jwtOptions.SigningKey;
+// JWT validation is configured through the options pipeline so it always uses the
+// same JwtOptions values as token issuance (validated on startup by the Identity module).
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((bearerOptions, jwtOptions) =>
     {
-        options.MapInboundClaims = false;
-        options.TokenValidationParameters = new TokenValidationParameters
+        var jwt = jwtOptions.Value;
+
+        bearerOptions.MapInboundClaims = false;
+        bearerOptions.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = jwtOptions.Issuer,
+            ValidIssuer = jwt.Issuer,
             ValidateAudience = true,
-            ValidAudience = jwtOptions.Audience,
+            ValidAudience = jwt.Audience,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
             NameClaimType = WaslaClaimTypes.Name,
         };
     });
