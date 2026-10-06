@@ -1,0 +1,60 @@
+name: wasla-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: wasla
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wasla_dev}
+      POSTGRES_DB: wasla
+    ports:
+      - "5433:5432" # 5433 avoids clashing with a local PostgreSQL install on 5432
+    volumes:
+      - wasla-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wasla -d wasla"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    profiles: ["storage"]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wasla}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-wasla_dev_minio}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - wasla-minio-data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      WASLA_Database__ConnectionString: "Host=postgres;Port=5432;Database=wasla;Username=wasla;Password=${POSTGRES_PASSWORD:-wasla_dev}"
+      WASLA_Redis__ConnectionString: "redis:6379"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  wasla-postgres-data:
+  wasla-minio-data:

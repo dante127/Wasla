@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Modules\Tenancy\Wasla.Tenancy.Infrastructure\Wasla.Tenancy.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Identity\Wasla.Identity.Infrastructure\Wasla.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Teams\Wasla.Teams.Infrastructure\Wasla.Teams.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Customers\Wasla.Customers.Infrastructure\Wasla.Customers.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Conversations\Wasla.Conversations.Infrastructure\Wasla.Conversations.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Messages\Wasla.Messages.Infrastructure\Wasla.Messages.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Channels\Wasla.Channels.Infrastructure\Wasla.Channels.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Tickets\Wasla.Tickets.Infrastructure\Wasla.Tickets.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Tasks\Wasla.Tasks.Infrastructure\Wasla.Tasks.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Notifications\Wasla.Notifications.Infrastructure\Wasla.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Analytics\Wasla.Analytics.Infrastructure\Wasla.Analytics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Audit\Wasla.Audit.Infrastructure\Wasla.Audit.Infrastructure.csproj" />
+    <ProjectReference Include="..\Wasla.BuildingBlocks\Wasla.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
+    <PackageReference Include="StackExchange.Redis" Version="3.3.1" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Wasla.BuildingBlocks\Wasla.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Wasla.Tasks.Domain\Wasla.Tasks.Domain.csproj" />
+    <ProjectReference Include="..\Wasla.Tasks.Application\Wasla.Tasks.Application.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

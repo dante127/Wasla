@@ -21,9 +21,9 @@ implementation into the core CRM domain. Provider complexity lives at the edges.
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| 0 | Architecture: ADRs, domain model, ERD, boundaries, API contract, security & multitenancy strategy, event model | ✅ Complete (this repo state) |
-| 1 | Foundation: solution, projects, PostgreSQL, Redis, configuration, logging, OpenTelemetry, health checks, Docker, CI | ⏳ Next |
-| 2 | Identity & Tenancy | ⏳ Planned |
+| 0 | Architecture: ADRs, domain model, ERD, boundaries, API contract, security & multitenancy strategy, event model | ✅ Complete |
+| 1 | Foundation: solution, projects, PostgreSQL, Redis, configuration, logging, OpenTelemetry, health checks, Docker, CI | ✅ Complete |
+| 2 | Identity & Tenancy | ⏳ Next |
 | 3 | Customers (Customer 360) | ⏳ Planned |
 | 4 | Conversations (unified inbox core) | ⏳ Planned |
 | 5 | WhatsApp channel adapter | ⏳ Planned |
@@ -41,18 +41,47 @@ Billing, AI capabilities, Instagram/Facebook/Email/SMS adapters, advanced analyt
 
 ```text
 Wasla/
-├── docs/                  # Architecture & engineering documentation (Phase 0)
-│   └── decisions/         # Architecture Decision Records (ADRs)
-├── src/                   # Application source (added in Phase 1)
-│   ├── Wasla.Api/         # Host / composition root (ASP.NET Core Web API)
-│   ├── Wasla.BuildingBlocks/
-│   └── Modules/           # One folder per module, Domain/Application/Infrastructure
-└── tests/                 # Unit / Integration / Architecture tests (added in Phase 1)
+├── docs/                          # Architecture & engineering documentation
+│   └── decisions/                 # Architecture Decision Records (ADRs)
+├── src/
+│   ├── Wasla.Api/                 # ASP.NET Core host (composition root)
+│   ├── Wasla.BuildingBlocks/      # Shared kernel (no business logic)
+│   └── Modules/                   # 12 modules × Domain / Application / Infrastructure
+├── tests/
+│   ├── Wasla.UnitTests/
+│   ├── Wasla.IntegrationTests/
+│   └── Wasla.ArchitectureTests/
+├── docker-compose.yml             # postgres, redis, minio (profile), api
+└── .github/workflows/ci.yml       # build, test, docker image
 ```
 
-The exact solution structure is defined in
+The solution structure is defined in
 [docs/architecture.md](docs/architecture.md) and locked as decisions in
 [docs/decisions/](docs/decisions/README.md).
+
+---
+
+## Quickstart (development)
+
+Requirements: **.NET SDK 10**, **Docker**.
+
+```bash
+# 1. Infrastructure (PostgreSQL + Redis)
+docker compose up -d postgres redis
+
+# 2. Run the API (development configuration)
+dotnet run --project src/Wasla.Api
+# health endpoints: /health/live, /health/ready, /health
+
+# Full stack in containers (API at http://localhost:8080)
+docker compose up --build
+```
+
+Host ports: PostgreSQL on 5433 and Redis on 6379 (5433 avoids clashing with machines that already run PostgreSQL locally on 5432).
+
+Configuration uses strongly-typed options with `WASLA_`-prefixed environment
+overrides (see `.env.example`). Development defaults target `localhost` — see
+`src/Wasla.Api/appsettings.Development.json`.
 
 ---
 

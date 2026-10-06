@@ -10,7 +10,7 @@ Done. This file grows as Phases land; it is the reference for every contributor
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| .NET SDK | **10.0** | Install before Phase 1 (the current dev machine has runtime only — SDK required) |
+| .NET SDK | **10.0** | Required to build and run |
 | Docker Desktop | current | Compose runs postgres/redis/minio |
 | EF Core CLI | `dotnet tool install --global dotnet-ef` | Migrations |
 | Git | current | Trunk-based workflow |
