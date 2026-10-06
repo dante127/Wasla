@@ -5,6 +5,9 @@ namespace Wasla.ArchitectureTests;
 /// <summary>
 /// Enforces the module dependency rules from docs/architecture.md §6 by inspecting the
 /// project and package references of every csproj in the solution.
+/// Cross-module communication happens exclusively via contracts: a module project may
+/// reference OTHER modules' <c>*.Application</c> projects (contracts live there) but never
+/// another module's Domain or Infrastructure.
 /// </summary>
 public sealed class SolutionStructureTests
 {
@@ -27,16 +30,21 @@ public sealed class SolutionStructureTests
     }
 
     [Fact]
-    public void Application_projects_reference_only_their_own_domain_and_building_blocks()
+    public void Application_projects_reference_only_own_domain_building_blocks_and_contracts()
     {
         foreach (var project in ModuleProjects("Application"))
         {
-            var allowed = new[] { OwnModuleProject(project.Name, "Domain"), BuildingBlocksProject };
+            foreach (var reference in project.ProjectReferences)
+            {
+                var ownDomain = OwnModuleProject(project.Name, "Domain");
+                var isOwnDomain = reference == ownDomain;
+                var isBuildingBlocks = reference == BuildingBlocksProject;
+                var isForeignContracts = IsModuleProject(reference) && reference.EndsWith(".Application", StringComparison.Ordinal);
 
-            Assert.All(project.ProjectReferences, reference =>
                 Assert.True(
-                    allowed.Contains(reference),
-                    $"{project.Name} references {reference}, which is not allowed."));
+                    isOwnDomain || isBuildingBlocks || isForeignContracts,
+                    $"{project.Name} references {reference}, which is not allowed.");
+            }
         }
     }
 
@@ -60,26 +68,22 @@ public sealed class SolutionStructureTests
     }
 
     [Fact]
-    public void No_cross_module_references_exist()
+    public void No_project_references_another_modules_domain_or_infrastructure()
     {
         foreach (var project in AllProjects())
         {
             var ownModule = ModuleNameOf(project.Name);
 
-            // The rule applies to module projects only: the host (Wasla.Api), the shared
-            // kernel and test projects may legitimately reference modules.
-            if (ownModule is null)
-            {
-                continue;
-            }
-
             foreach (var reference in project.ProjectReferences.Where(IsModuleProject))
             {
                 var referencedModule = ModuleNameOf(reference);
 
+                var isOwnModule = string.Equals(ownModule, referencedModule, StringComparison.Ordinal);
+                var isContractsOfAnotherModule = reference.EndsWith(".Application", StringComparison.Ordinal) && ownModule is not null;
+
                 Assert.True(
-                    string.Equals(ownModule, referencedModule, StringComparison.Ordinal),
-                    $"{project.Name} must not reference {reference} (cross-module dependency).");
+                    isOwnModule || isContractsOfAnotherModule,
+                    $"{project.Name} must not reference {reference} (only own-module projects or other modules' contracts are allowed).");
             }
         }
     }
@@ -103,14 +107,17 @@ public sealed class SolutionStructureTests
     }
 
     [Fact]
-    public void Domain_and_application_projects_do_not_reference_infrastructure_packages()
+    public void Domain_and_application_projects_do_not_reference_infrastructure_dependencies()
     {
-        string[] forbiddenPrefixes =
+        string[] forbiddenPackagePrefixes =
         [
             "Microsoft.EntityFrameworkCore",
             "Npgsql",
             "StackExchange.Redis",
             "Serilog",
+            "Microsoft.AspNetCore",
+            "System.IdentityModel",
+            "Testcontainers",
         ];
 
         var projects = ModuleProjects("Domain").Concat(ModuleProjects("Application"));
@@ -120,9 +127,13 @@ public sealed class SolutionStructureTests
             foreach (var package in project.PackageReferences)
             {
                 Assert.False(
-                    forbiddenPrefixes.Any(prefix => package.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)),
+                    forbiddenPackagePrefixes.Any(prefix => package.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)),
                     $"{project.Name} must not reference infrastructure package {package}.");
             }
+
+            Assert.True(
+                project.FrameworkReferences.Count == 0,
+                $"{project.Name} must not reference ASP.NET Core framework assemblies ({string.Join(", ", project.FrameworkReferences)}).");
         }
     }
 
@@ -166,7 +177,13 @@ public sealed class SolutionStructureTests
             .Select(include => include!)
             .ToList();
 
-        return new ProjectInfo(name, projectReferences, packageReferences);
+        var frameworkReferences = document.Descendants("FrameworkReference")
+            .Select(element => (string?)element.Attribute("Include"))
+            .Where(include => include is not null)
+            .Select(include => include!)
+            .ToList();
+
+        return new ProjectInfo(name, projectReferences, packageReferences, frameworkReferences);
     }
 
     private static IEnumerable<ProjectInfo> ModuleProjects(string layerSuffix) =>
@@ -188,5 +205,9 @@ public sealed class SolutionStructureTests
     private static string OwnModuleProject(string projectName, string targetLayer) =>
         $"Wasla.{ModuleNameOf(projectName)}.{targetLayer}";
 
-    private sealed record ProjectInfo(string Name, List<string> ProjectReferences, List<string> PackageReferences);
+    private sealed record ProjectInfo(
+        string Name,
+        List<string> ProjectReferences,
+        List<string> PackageReferences,
+        List<string> FrameworkReferences);
 }

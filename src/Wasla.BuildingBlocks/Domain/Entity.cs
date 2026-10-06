@@ -4,12 +4,17 @@ namespace Wasla.BuildingBlocks.Domain;
 public abstract class Entity<TId> : IEquatable<Entity<TId>>
     where TId : struct
 {
+    protected Entity()
+    {
+        Id = default;
+    }
+
     protected Entity(TId id)
     {
         Id = id;
     }
 
-    public TId Id { get; }
+    public TId Id { get; private set; }
 
     public bool Equals(Entity<TId>? other)
     {

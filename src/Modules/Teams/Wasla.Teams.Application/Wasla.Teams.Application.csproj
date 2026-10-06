@@ -3,6 +3,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Wasla.BuildingBlocks\Wasla.BuildingBlocks.csproj" />
     <ProjectReference Include="..\Wasla.Teams.Domain\Wasla.Teams.Domain.csproj" />
+    <ProjectReference Include="..\..\Identity\Wasla.Identity.Application\Wasla.Identity.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="12.1.1" />
   </ItemGroup>
 
   <PropertyGroup>

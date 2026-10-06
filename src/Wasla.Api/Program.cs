@@ -1,6 +1,10 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
@@ -11,14 +15,19 @@ using Serilog.Formatting.Compact;
 using StackExchange.Redis;
 using Wasla.Analytics.Infrastructure;
 using Wasla.Api.Configuration;
+using Wasla.Api.Endpoints;
 using Wasla.Api.Health;
+using Wasla.Api.Seeding;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Application.Security;
 using Wasla.BuildingBlocks.Infrastructure;
 using Wasla.BuildingBlocks.Web;
+using Wasla.BuildingBlocks.Web.Permissions;
 using Wasla.Channels.Infrastructure;
 using Wasla.Conversations.Infrastructure;
 using Wasla.Customers.Infrastructure;
+using Wasla.Identity.Application.Contracts;
 using Wasla.Identity.Infrastructure;
 using Wasla.Messages.Infrastructure;
 using Wasla.Notifications.Infrastructure;
@@ -78,7 +87,39 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(static serviceProvider =>
     return ConnectionMultiplexer.Connect(redisConfiguration);
 });
 
-builder.Services.AddSingleton<IClock, SystemClock>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<TenantContext>();
+builder.Services.AddScoped<ITenantContext>(serviceProvider => serviceProvider.GetRequiredService<TenantContext>());
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<IClock, SystemClock>();
+
+// ------------------------------------------------------- authN & authZ ------
+var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+var signingKey = string.IsNullOrWhiteSpace(jwtOptions.SigningKey)
+    ? new string('x', 48) // replaced by startup validation (Jwt:SigningKey) with a clear failure
+    : jwtOptions.SigningKey;
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtOptions.Audience,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
+            NameClaimType = WaslaClaimTypes.Name,
+        };
+    });
+
+builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
 // ------------------------------------------------------------- telemetry ----
 var telemetryOptions = builder.Configuration
@@ -151,9 +192,18 @@ foreach (var module in modules)
 
 var app = builder.Build();
 
+if (args.Contains("--seed"))
+{
+    await app.SeedDatabaseAsync();
+    return;
+}
+
 app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseCors("frontend");
+app.UseAuthentication();
+app.UseMiddleware<TenantResolutionMiddleware>();
+app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/live", new HealthCheckOptions
@@ -174,6 +224,12 @@ foreach (var module in modules)
 {
     module.MapEndpoints(app);
 }
+
+app.MapAuthEndpoints();
+app.MapUserEndpoints();
+app.MapRoleEndpoints();
+app.MapTenancyEndpoints();
+app.MapTeamEndpoints();
 
 app.Run();
 

@@ -6,6 +6,10 @@ public abstract class AggregateRoot<TId> : Entity<TId>
 {
     private readonly List<IDomainEvent> _domainEvents = [];
 
+    protected AggregateRoot()
+    {
+    }
+
     protected AggregateRoot(TId id)
         : base(id)
     {
