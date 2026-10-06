@@ -9,14 +9,25 @@ public static class ApiResults
     public static IResult Problem(HttpContext httpContext, Error error) =>
         Results.Problem(WaslaProblemDetails.FromError(error, StatusCodeFor(error.Code), httpContext));
 
-    public static int StatusCodeFor(string code) => code switch
+    public static int StatusCodeFor(string code)
     {
-        "auth.invalid_credentials" or "auth.refresh_token_invalid" or "auth.unauthorized"
-            => StatusCodes.Status401Unauthorized,
-        var value when value.EndsWith(".not_found", StringComparison.Ordinal)
-            => StatusCodes.Status404NotFound,
-        var value when value.EndsWith(".conflict", StringComparison.Ordinal)
-            => StatusCodes.Status409Conflict,
-        _ => StatusCodes.Status400BadRequest,
-    };
+        if (code is "auth.invalid_credentials" or "auth.refresh_token_invalid" or "auth.unauthorized")
+        {
+            return StatusCodes.Status401Unauthorized;
+        }
+
+        if (code.EndsWith(".not_found", StringComparison.Ordinal)
+            || code.EndsWith("_not_found", StringComparison.Ordinal))
+        {
+            return StatusCodes.Status404NotFound;
+        }
+
+        if (code.EndsWith(".conflict", StringComparison.Ordinal)
+            || code.EndsWith("_conflict", StringComparison.Ordinal))
+        {
+            return StatusCodes.Status409Conflict;
+        }
+
+        return StatusCodes.Status400BadRequest;
+    }
 }

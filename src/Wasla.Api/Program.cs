@@ -232,6 +232,8 @@ app.MapUserEndpoints();
 app.MapRoleEndpoints();
 app.MapTenancyEndpoints();
 app.MapTeamEndpoints();
+app.MapCustomerEndpoints();
+app.MapTagEndpoints();
 
 app.Run();
 

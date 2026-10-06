@@ -8,6 +8,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Domain;
+using Wasla.Conversations.Application.Abstractions;
+using Wasla.Conversations.Domain;
+using Wasla.Conversations.Infrastructure;
+using Wasla.Customers.Application.Abstractions;
+using Wasla.Customers.Domain;
+using Wasla.Customers.Infrastructure;
 using Wasla.Identity.Application.Abstractions;
 using Wasla.Identity.Application.Roles;
 using Wasla.Identity.Domain;
@@ -32,6 +39,12 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
     public const string OwnerBEmail = "owner-b@test.dev";
     public const string BetaOnlyRoleName = "BetaOnly";
 
+    public const string AlphaCustomerName = "Alice Johnson";
+
+    public const string AlphaCustomerPhone = "+963111111111";
+
+    public const string BetaCustomerName = "Zed Beta";
+
     private PostgreSqlContainer? _postgres;
     private WebApplicationFactory<Program>? _factory;
 
@@ -40,6 +53,12 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
     public Guid BetaTenantId { get; private set; }
 
     public Guid BetaOwnerUserId { get; private set; }
+
+    public Guid AlphaCustomerId { get; private set; }
+
+    public Guid BetaCustomerId { get; private set; }
+
+    public Guid AlphaVipTagId { get; private set; }
 
     public HttpClient CreateClient() => GetFactory().CreateClient();
 
@@ -63,6 +82,8 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
         await services.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
         await services.GetRequiredService<TeamsDbContext>().Database.MigrateAsync();
         await services.GetRequiredService<AuditDbContext>().Database.MigrateAsync();
+await services.GetRequiredService<ConversationsDbContext>().Database.MigrateAsync();
+await services.GetRequiredService<CustomersDbContext>().Database.MigrateAsync();
 
         await SeedAsync(services);
     }
@@ -170,6 +191,42 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
         await membershipRepository.AddAsync(betaOwnerMembership, CancellationToken.None);
 
         await identityDb.SaveChangesAsync();
+
+        var conversationsDb = services.GetRequiredService<ConversationsDbContext>();
+        var customersDb = services.GetRequiredService<CustomersDbContext>();
+        var tagRepository = services.GetRequiredService<ITagRepository>();
+        var customerRepository = services.GetRequiredService<ICustomerRepository>();
+
+        var vipTag = Tag.Create(alpha.Id, "vip", "VIP", "#7c3aed", now);
+        var leadTag = Tag.Create(alpha.Id, "new-lead", "New Lead", null, now);
+        var betaTag = Tag.Create(beta.Id, "beta-only", "Beta Only", null, now);
+
+        await tagRepository.AddAsync(vipTag, CancellationToken.None);
+        await tagRepository.AddAsync(leadTag, CancellationToken.None);
+        await tagRepository.AddAsync(betaTag, CancellationToken.None);
+        await conversationsDb.SaveChangesAsync();
+
+        AlphaVipTagId = vipTag.Id.Value;
+
+        var alice = Customer.Create(alpha.Id, AlphaCustomerName, now);
+        alice.AddIdentity(ChannelType.WhatsApp, AlphaCustomerPhone, AlphaCustomerPhone, now);
+        alice.AddContact(ContactType.Email, "alice@test.dev", now);
+        alice.AddTag(vipTag.Id.Value, now);
+        alice.AddNote(null, "VIP customer.", now);
+
+        var bob = Customer.Create(alpha.Id, "Bob Smith", now);
+        bob.AddIdentity(ChannelType.Telegram, "@bob_smith", "@bob_smith", now);
+
+        var zed = Customer.Create(beta.Id, BetaCustomerName, now);
+        zed.AddIdentity(ChannelType.WhatsApp, "+963999999999", "+963999999999", now);
+
+        await customerRepository.AddAsync(alice, CancellationToken.None);
+        await customerRepository.AddAsync(bob, CancellationToken.None);
+        await customerRepository.AddAsync(zed, CancellationToken.None);
+        await customersDb.SaveChangesAsync();
+
+        AlphaCustomerId = alice.Id.Value;
+        BetaCustomerId = zed.Id.Value;
     }
 
     private sealed class ApiFactory(string connectionString) : WebApplicationFactory<Program>

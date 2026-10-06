@@ -2,6 +2,12 @@ using Microsoft.EntityFrameworkCore;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Domain;
+using Wasla.Conversations.Application.Abstractions;
+using Wasla.Conversations.Domain;
+using Wasla.Conversations.Infrastructure;
+using Wasla.Customers.Application.Abstractions;
+using Wasla.Customers.Domain;
+using Wasla.Customers.Infrastructure;
 using Wasla.Identity.Application.Abstractions;
 using Wasla.Identity.Domain;
 using Wasla.Identity.Infrastructure;
@@ -27,6 +33,8 @@ public static class DatabaseSeeder
         await services.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
         await services.GetRequiredService<TeamsDbContext>().Database.MigrateAsync();
         await services.GetRequiredService<AuditDbContext>().Database.MigrateAsync();
+await services.GetRequiredService<ConversationsDbContext>().Database.MigrateAsync();
+await services.GetRequiredService<CustomersDbContext>().Database.MigrateAsync();
         logger.LogInformation("Database migrations applied.");
 
         var tenancyDb = services.GetRequiredService<TenancyDbContext>();
@@ -94,6 +102,39 @@ public static class DatabaseSeeder
 
         await teamRepository.AddAsync(supportTeam, CancellationToken.None);
         await teamsDb.SaveChangesAsync();
+
+        var conversationsDb = services.GetRequiredService<ConversationsDbContext>();
+        var customersDb = services.GetRequiredService<CustomersDbContext>();
+        var tagRepository = services.GetRequiredService<ITagRepository>();
+        var customerRepository = services.GetRequiredService<ICustomerRepository>();
+
+        var vipTag = Tag.Create(tenant.Id, "vip", "VIP", "#7c3aed", now);
+        var leadTag = Tag.Create(tenant.Id, "new-lead", "New Lead", null, now);
+        var complaintTag = Tag.Create(tenant.Id, "complaint", "Complaint", "#dc2626", now);
+
+        await tagRepository.AddAsync(vipTag, CancellationToken.None);
+        await tagRepository.AddAsync(leadTag, CancellationToken.None);
+        await tagRepository.AddAsync(complaintTag, CancellationToken.None);
+        await conversationsDb.SaveChangesAsync();
+
+        var layla = Customer.Create(tenant.Id, "Layla Haddad", now);
+        layla.AddIdentity(ChannelType.WhatsApp, "+963991234567", "+963 991 234 567", now);
+        layla.AddIdentity(ChannelType.Telegram, "@layla_h", "@layla_h", now);
+        layla.AddContact(ContactType.Email, "layla@example.com", now);
+        layla.AddTag(vipTag.Id.Value, now);
+
+        var omar = Customer.Create(tenant.Id, "Omar Khaled", now);
+        omar.AddIdentity(ChannelType.Telegram, "@omar_k", "@omar_k", now);
+        omar.AddTag(leadTag.Id.Value, now);
+
+        var sara = Customer.Create(tenant.Id, "Sara Nasser", now);
+        sara.AddIdentity(ChannelType.Phone, "+963988765432", "+963 988 765 432", now);
+        sara.AddTag(complaintTag.Id.Value, now);
+
+        await customerRepository.AddAsync(layla, CancellationToken.None);
+        await customerRepository.AddAsync(omar, CancellationToken.None);
+        await customerRepository.AddAsync(sara, CancellationToken.None);
+        await customersDb.SaveChangesAsync();
 
         logger.LogInformation(
             "Seeded tenant '{Slug}' with users owner@wasla.dev / manager@wasla.dev / agent@wasla.dev and team 'Support'.",
