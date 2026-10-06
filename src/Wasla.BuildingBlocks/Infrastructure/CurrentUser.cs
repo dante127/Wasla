@@ -14,4 +14,7 @@ public sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICur
         Guid.TryParse(httpContextAccessor.HttpContext?.User?.FindFirst(WaslaClaimTypes.Subject)?.Value, out var id)
             ? id
             : null;
+
+    public string? DisplayName =>
+        httpContextAccessor.HttpContext?.User?.FindFirst(WaslaClaimTypes.Name)?.Value;
 }

@@ -28,6 +28,11 @@ public static class ApiResults
             return StatusCodes.Status409Conflict;
         }
 
+        if (code == "media.too_large")
+        {
+            return StatusCodes.Status413PayloadTooLarge;
+        }
+
         return StatusCodes.Status400BadRequest;
     }
 }

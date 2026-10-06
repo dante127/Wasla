@@ -111,4 +111,22 @@ public sealed class CustomerRepository(CustomersDbContext dbContext) : ICustomer
             customer => customer.TenantId == tenantId
                 && customer.Contacts.Any(contact => contact.Type == type && contact.Value == value),
             cancellationToken);
+    public async Task<List<Customer>> GetByIdsAsync(
+        TenantId tenantId,
+        IReadOnlyCollection<CustomerId> customerIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = customerIds.Distinct().ToList();
+
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return await dbContext.Customers
+            .AsNoTracking()
+            .Include(customer => customer.Contacts)
+            .Where(customer => customer.TenantId == tenantId && ids.Contains(customer.Id))
+            .ToListAsync(cancellationToken);
+    }
 }

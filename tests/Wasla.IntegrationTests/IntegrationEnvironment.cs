@@ -15,6 +15,12 @@ using Wasla.Conversations.Infrastructure;
 using Wasla.Customers.Application.Abstractions;
 using Wasla.Customers.Domain;
 using Wasla.Customers.Infrastructure;
+using Wasla.Channels.Application.Abstractions;
+using Wasla.Channels.Domain;
+using Wasla.Channels.Infrastructure;
+using Wasla.Messages.Application.Abstractions;
+using Wasla.Messages.Domain;
+using Wasla.Messages.Infrastructure;
 using Wasla.Identity.Application.Abstractions;
 using Wasla.Identity.Application.Roles;
 using Wasla.Identity.Domain;
@@ -60,6 +66,10 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
 
     public Guid AlphaVipTagId { get; private set; }
 
+    public Guid AlphaConversationId { get; private set; }
+
+    public Guid BetaConversationId { get; private set; }
+
     public HttpClient CreateClient() => GetFactory().CreateClient();
 
     public async Task InitializeAsync()
@@ -84,6 +94,9 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
         await services.GetRequiredService<AuditDbContext>().Database.MigrateAsync();
 await services.GetRequiredService<ConversationsDbContext>().Database.MigrateAsync();
 await services.GetRequiredService<CustomersDbContext>().Database.MigrateAsync();
+await services.GetRequiredService<ChannelsDbContext>().Database.MigrateAsync();
+await services.GetRequiredService<ConversationsDbContext>().Database.MigrateAsync();
+await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
 
         await SeedAsync(services);
     }
@@ -225,8 +238,42 @@ await services.GetRequiredService<CustomersDbContext>().Database.MigrateAsync();
         await customerRepository.AddAsync(zed, CancellationToken.None);
         await customersDb.SaveChangesAsync();
 
-        AlphaCustomerId = alice.Id.Value;
+                AlphaCustomerId = alice.Id.Value;
         BetaCustomerId = zed.Id.Value;
+
+        var channelsDb = services.GetRequiredService<ChannelsDbContext>();
+        var messagesDb = services.GetRequiredService<MessagesDbContext>();
+        var channelRepository = services.GetRequiredService<IChannelRepository>();
+        var conversationRepository = services.GetRequiredService<IConversationRepository>();
+        var messageRepository = services.GetRequiredService<IMessageRepository>();
+        var quickReplyRepository = services.GetRequiredService<IQuickReplyRepository>();
+
+        var alphaWhatsApp = Channel.Create(alpha.Id, ChannelType.WhatsApp, "Alpha WhatsApp", "+963111111111", now);
+        alphaWhatsApp.Activate();
+        var betaWhatsApp = Channel.Create(beta.Id, ChannelType.WhatsApp, "Beta WhatsApp", "+963999999999", now);
+        betaWhatsApp.Activate();
+        await channelRepository.AddAsync(alphaWhatsApp, CancellationToken.None);
+        await channelRepository.AddAsync(betaWhatsApp, CancellationToken.None);
+        await channelsDb.SaveChangesAsync();
+
+        var alphaConversation = Conversation.Create(alpha.Id, alice.Id.Value, alphaWhatsApp.Id.Value, now.AddMinutes(-10));
+        alphaConversation.AddTag(vipTag.Id.Value, null, now.AddMinutes(-9));
+        var alphaInbound = Message.CreateInbound(alpha.Id, alphaConversation.Id.Value, alphaWhatsApp.Id.Value, MessageType.Text, "Hello, I need help with my order", "seed-alpha-1", now.AddMinutes(-8));
+        alphaConversation.RecordMessage(alphaInbound.Id.Value, true, alphaInbound.Body, now.AddMinutes(-8));
+        await conversationRepository.AddAsync(alphaConversation, CancellationToken.None);
+        await conversationsDb.SaveChangesAsync();
+        await messageRepository.AddAsync(alphaInbound, CancellationToken.None);
+        await messagesDb.SaveChangesAsync();
+        AlphaConversationId = alphaConversation.Id.Value;
+
+        var betaConversation = Conversation.Create(beta.Id, zed.Id.Value, betaWhatsApp.Id.Value, now.AddMinutes(-5));
+        await conversationRepository.AddAsync(betaConversation, CancellationToken.None);
+        await conversationsDb.SaveChangesAsync();
+        BetaConversationId = betaConversation.Id.Value;
+
+        var welcomeReply = QuickReply.Create(alpha.Id, "welcome", "Hello {{customer.name}}, how can we help you?", now);
+        await quickReplyRepository.AddAsync(welcomeReply, CancellationToken.None);
+        await conversationsDb.SaveChangesAsync();
     }
 
     private sealed class ApiFactory(string connectionString) : WebApplicationFactory<Program>

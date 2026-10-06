@@ -1,0 +1,21 @@
+using Wasla.BuildingBlocks.Domain;
+
+namespace Wasla.Customers.Application.Contracts;
+
+/// <summary>Public, provider-neutral summary of a customer for other modules.</summary>
+public sealed record CustomerSummary(
+    Guid Id,
+    string DisplayName,
+    string? PrimaryPhone,
+    string? PrimaryEmail);
+
+/// <summary>Module contract: read customer data without touching Customers internals.</summary>
+public interface ICustomerInfoProvider
+{
+    Task<CustomerSummary?> GetAsync(TenantId tenantId, Guid customerId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyDictionary<Guid, CustomerSummary>> GetManyAsync(
+        TenantId tenantId,
+        IReadOnlyCollection<Guid> customerIds,
+        CancellationToken cancellationToken);
+}

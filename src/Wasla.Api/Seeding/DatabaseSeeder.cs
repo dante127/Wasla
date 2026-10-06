@@ -2,6 +2,12 @@ using Microsoft.EntityFrameworkCore;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Domain;
+using Wasla.Channels.Application.Abstractions;
+using Wasla.Channels.Domain;
+using Wasla.Channels.Infrastructure;
+using Wasla.Messages.Application.Abstractions;
+using Wasla.Messages.Domain;
+using Wasla.Messages.Infrastructure;
 using Wasla.Conversations.Application.Abstractions;
 using Wasla.Conversations.Domain;
 using Wasla.Conversations.Infrastructure;
@@ -35,6 +41,9 @@ public static class DatabaseSeeder
         await services.GetRequiredService<AuditDbContext>().Database.MigrateAsync();
 await services.GetRequiredService<ConversationsDbContext>().Database.MigrateAsync();
 await services.GetRequiredService<CustomersDbContext>().Database.MigrateAsync();
+await services.GetRequiredService<ChannelsDbContext>().Database.MigrateAsync();
+await services.GetRequiredService<ConversationsDbContext>().Database.MigrateAsync();
+await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         logger.LogInformation("Database migrations applied.");
 
         var tenancyDb = services.GetRequiredService<TenancyDbContext>();
@@ -135,6 +144,50 @@ await services.GetRequiredService<CustomersDbContext>().Database.MigrateAsync();
         await customerRepository.AddAsync(omar, CancellationToken.None);
         await customerRepository.AddAsync(sara, CancellationToken.None);
         await customersDb.SaveChangesAsync();
+
+        var channelsDb = services.GetRequiredService<ChannelsDbContext>();
+        var messagesDb = services.GetRequiredService<MessagesDbContext>();
+        var channelRepository = services.GetRequiredService<IChannelRepository>();
+        var conversationRepository = services.GetRequiredService<IConversationRepository>();
+        var messageRepository = services.GetRequiredService<IMessageRepository>();
+        var quickReplyRepository = services.GetRequiredService<IQuickReplyRepository>();
+
+        var whatsApp = Channel.Create(tenant.Id, ChannelType.WhatsApp, "WhatsApp - Main line", "+963991234567", now);
+        whatsApp.Activate();
+        var telegram = Channel.Create(tenant.Id, ChannelType.Telegram, "Telegram - Support", "@wasla_support_bot", now);
+        telegram.Activate();
+        await channelRepository.AddAsync(whatsApp, CancellationToken.None);
+        await channelRepository.AddAsync(telegram, CancellationToken.None);
+        await channelsDb.SaveChangesAsync();
+
+        var laylaConversation = Conversation.Create(tenant.Id, layla.Id.Value, whatsApp.Id.Value, now.AddMinutes(-30));
+        laylaConversation.AssignToUser(agent.Id.Value, null, now.AddMinutes(-25));
+        laylaConversation.AddTag(vipTag.Id.Value, null, now.AddMinutes(-24));
+        laylaConversation.AddNote(agent.Id.Value, "VIP customer, prioritize.", [manager.Id.Value], [], now.AddMinutes(-23));
+        var laylaInbound = Message.CreateInbound(tenant.Id, laylaConversation.Id.Value, whatsApp.Id.Value, MessageType.Text, "Is my order ready?", "seed-wa-1", now.AddMinutes(-28));
+        laylaConversation.RecordMessage(laylaInbound.Id.Value, true, laylaInbound.Body, now.AddMinutes(-28));
+        var laylaOutbound = Message.CreateOutbound(tenant.Id, laylaConversation.Id.Value, whatsApp.Id.Value, MessageType.Text, "Hi Layla! Yes, it is ready for pickup.", null, now.AddMinutes(-20));
+        laylaOutbound.MarkSent("seed-wa-2", now.AddMinutes(-20));
+        laylaConversation.RecordMessage(laylaOutbound.Id.Value, false, laylaOutbound.Body, now.AddMinutes(-20));
+        await conversationRepository.AddAsync(laylaConversation, CancellationToken.None);
+        await conversationsDb.SaveChangesAsync();
+        await messageRepository.AddAsync(laylaInbound, CancellationToken.None);
+        await messageRepository.AddAsync(laylaOutbound, CancellationToken.None);
+        await messagesDb.SaveChangesAsync();
+
+        var omarConversation = Conversation.Create(tenant.Id, omar.Id.Value, telegram.Id.Value, now.AddMinutes(-15));
+        var omarInbound = Message.CreateInbound(tenant.Id, omarConversation.Id.Value, telegram.Id.Value, MessageType.Text, "Hello, do you deliver to Homs?", "seed-tg-1", now.AddMinutes(-14));
+        omarConversation.RecordMessage(omarInbound.Id.Value, true, omarInbound.Body, now.AddMinutes(-14));
+        await conversationRepository.AddAsync(omarConversation, CancellationToken.None);
+        await conversationsDb.SaveChangesAsync();
+        await messageRepository.AddAsync(omarInbound, CancellationToken.None);
+        await messagesDb.SaveChangesAsync();
+
+        var welcomeReply = QuickReply.Create(tenant.Id, "welcome", "Hello {{customer.name}}, how can we help you?", now);
+        var pricingReply = QuickReply.Create(tenant.Id, "pricing", "Hi {{customer.name}}, our pricing brochure is on its way.", now);
+        await quickReplyRepository.AddAsync(welcomeReply, CancellationToken.None);
+        await quickReplyRepository.AddAsync(pricingReply, CancellationToken.None);
+        await conversationsDb.SaveChangesAsync();
 
         logger.LogInformation(
             "Seeded tenant '{Slug}' with users owner@wasla.dev / manager@wasla.dev / agent@wasla.dev and team 'Support'.",

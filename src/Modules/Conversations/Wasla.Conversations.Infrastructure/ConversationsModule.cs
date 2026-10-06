@@ -25,11 +25,32 @@ public sealed class ConversationsModule : IModule
 
         services.AddScoped<ITagRepository, TagRepository>();
         services.AddScoped<ITagInfoProvider, TagInfoProvider>();
+        services.AddScoped<IConversationRepository, ConversationRepository>();
+        services.AddScoped<IQuickReplyRepository, QuickReplyRepository>();
+        services.AddScoped<IConversationInfoProvider, ConversationInfoProvider>();
+        services.AddScoped<IConversationWriter, ConversationWriter>();
         services.AddScoped<IConversationsUnitOfWork, ConversationsUnitOfWork>();
+
         services.AddScoped<ListTagsHandler>();
         services.AddScoped<CreateTagHandler>();
+        services.AddScoped<ListConversationsHandler>();
+        services.AddScoped<GetConversationHandler>();
+        services.AddScoped<CreateConversationHandler>();
+        services.AddScoped<AssignConversationHandler>();
+        services.AddScoped<ChangeConversationStatusHandler>();
+        services.AddScoped<SetConversationPriorityHandler>();
+        services.AddScoped<AddConversationTagsHandler>();
+        services.AddScoped<RemoveConversationTagHandler>();
+        services.AddScoped<AddConversationNoteHandler>();
+        services.AddScoped<MarkConversationReadHandler>();
+        services.AddScoped<GetConversationTimelineHandler>();
+        services.AddScoped<ListQuickRepliesHandler>();
+        services.AddScoped<CreateQuickReplyHandler>();
+        services.AddScoped<RenderQuickReplyHandler>();
 
         services.AddScoped<IValidator<CreateTagRequest>, CreateTagValidator>();
+        services.AddScoped<IValidator<CreateConversationRequest>, CreateConversationValidator>();
+        services.AddScoped<IValidator<CreateQuickReplyRequest>, CreateQuickReplyValidator>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

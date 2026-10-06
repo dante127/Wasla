@@ -234,6 +234,10 @@ app.MapTenancyEndpoints();
 app.MapTeamEndpoints();
 app.MapCustomerEndpoints();
 app.MapTagEndpoints();
+app.MapChannelEndpoints();
+app.MapConversationEndpoints();
+app.MapMediaEndpoints();
+app.MapQuickReplyEndpoints();
 
 app.Run();
 

@@ -25,8 +25,8 @@ implementation into the core CRM domain. Provider complexity lives at the edges.
 | 1 | Foundation: solution, projects, PostgreSQL, Redis, configuration, logging, OpenTelemetry, health checks, Docker, CI | ✅ Complete |
 | 2 | Identity & Tenancy | ✅ Complete |
 | 3 | Customers (Customer 360) | ✅ Complete |
-| 4 | Conversations (unified inbox core) | ⏳ Next |
-| 5 | WhatsApp channel adapter | ⏳ Planned |
+| 4 | Conversations (unified inbox core) | ✅ Complete |
+| 5 | WhatsApp channel adapter | ⏳ Next |
 | 6 | Telegram channel adapter | ⏳ Planned |
 | 7 | Real-time (SignalR) | ⏳ Planned |
 | 8 | Analytics (basic) | ⏳ Planned |

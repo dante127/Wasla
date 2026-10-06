@@ -9,6 +9,7 @@ using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Infrastructure.Configuration;
 using Wasla.Customers.Application;
 using Wasla.Customers.Application.Abstractions;
+using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.Customers.Application.Services;
 
 namespace Wasla.Customers.Infrastructure;
@@ -24,6 +25,7 @@ public sealed class CustomersModule : IModule
                 npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "customers")));
 
         services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<ICustomerInfoProvider, CustomerInfoProvider>();
         services.AddScoped<ICustomersUnitOfWork, CustomersUnitOfWork>();
         services.AddScoped<CustomerIdentityResolver>();
 

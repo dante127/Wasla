@@ -34,4 +34,9 @@ public interface ICustomerRepository
         ContactType type,
         string value,
         CancellationToken cancellationToken);
+    Task<List<Customer>> GetByIdsAsync(
+        TenantId tenantId,
+        IReadOnlyCollection<CustomerId> customerIds,
+        CancellationToken cancellationToken);
+
 }

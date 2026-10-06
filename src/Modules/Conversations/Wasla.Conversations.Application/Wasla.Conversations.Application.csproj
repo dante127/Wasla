@@ -1,8 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Wasla.BuildingBlocks\Wasla.BuildingBlocks.csproj" />
     <ProjectReference Include="..\Wasla.Conversations.Domain\Wasla.Conversations.Domain.csproj" />
+    <ProjectReference Include="..\..\Channels\Wasla.Channels.Application\Wasla.Channels.Application.csproj" />
+    <ProjectReference Include="..\..\Identity\Wasla.Identity.Application\Wasla.Identity.Application.csproj" />
+    <ProjectReference Include="..\..\Tenancy\Wasla.Tenancy.Application\Wasla.Tenancy.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

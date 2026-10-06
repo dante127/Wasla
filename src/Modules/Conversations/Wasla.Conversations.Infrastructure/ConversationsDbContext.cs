@@ -10,9 +10,15 @@ public sealed class ConversationsDbContext(DbContextOptions<ConversationsDbConte
 {
     public DbSet<Tag> Tags => Set<Tag>();
 
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+
+    public DbSet<QuickReply> QuickReplies => Set<QuickReply>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         ApplyTenantFilter<Tag>(modelBuilder);
+        ApplyTenantFilter<Conversation>(modelBuilder);
+        ApplyTenantFilter<QuickReply>(modelBuilder);
     }
 }
