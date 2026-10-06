@@ -69,7 +69,11 @@ Requirements: **.NET SDK 10**, **Docker**.
 # 1. Infrastructure (PostgreSQL + Redis)
 docker compose up -d postgres redis
 
-# 2. Run the API (development configuration)
+# 2. Apply migrations + seed development data
+#    (tenant "demo"; users owner@wasla.dev / manager@wasla.dev / agent@wasla.dev; password: Dev@Wasla123)
+dotnet run --project src/Wasla.Api -- --seed
+
+# 3. Run the API (development configuration)
 dotnet run --project src/Wasla.Api
 # health endpoints: /health/live, /health/ready, /health
 
