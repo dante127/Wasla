@@ -18,4 +18,11 @@ public interface ICustomerInfoProvider
         TenantId tenantId,
         IReadOnlyCollection<Guid> customerIds,
         CancellationToken cancellationToken);
+
+    /// <summary>The customer's external identity on a given channel (recipient resolution for sends).</summary>
+    Task<string?> GetChannelExternalIdAsync(
+        TenantId tenantId,
+        Guid customerId,
+        ChannelType channelType,
+        CancellationToken cancellationToken);
 }

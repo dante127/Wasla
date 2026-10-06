@@ -26,6 +26,7 @@ public sealed class CustomersModule : IModule
 
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ICustomerInfoProvider, CustomerInfoProvider>();
+        services.AddScoped<Wasla.Customers.Application.Contracts.ICustomerResolver, CustomerResolver>();
         services.AddScoped<ICustomersUnitOfWork, CustomersUnitOfWork>();
         services.AddScoped<CustomerIdentityResolver>();
 

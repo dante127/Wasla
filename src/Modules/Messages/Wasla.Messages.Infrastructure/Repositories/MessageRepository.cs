@@ -21,6 +21,20 @@ public sealed class MessageRepository(MessagesDbContext dbContext) : IMessageRep
                 message => message.TenantId == tenantId && message.IdempotencyKey == idempotencyKey,
                 cancellationToken);
 
+    public Task<Message?> GetByIdAsync(TenantId tenantId, Guid messageId, CancellationToken cancellationToken) =>
+        dbContext.Messages
+            .Include(message => message.Attachments)
+            .FirstOrDefaultAsync(
+                message => message.TenantId == tenantId && message.Id == new MessageId(messageId),
+                cancellationToken);
+
+    public Task<Message?> FindByProviderMessageIdAsync(TenantId tenantId, string providerMessageId, CancellationToken cancellationToken) =>
+        dbContext.Messages
+            .Include(message => message.Attachments)
+            .FirstOrDefaultAsync(
+                message => message.TenantId == tenantId && message.ProviderMessageId == providerMessageId,
+                cancellationToken);
+
     public async Task<(List<Message> Items, bool HasMore)> ListByConversationAsync(
         TenantId tenantId,
         Guid conversationId,

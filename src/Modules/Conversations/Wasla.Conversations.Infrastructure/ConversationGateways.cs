@@ -76,6 +76,13 @@ public sealed class ConversationWriter(
             return;
         }
 
+        if (messageId != Guid.Empty
+            && conversation.Timeline.Any(entry => entry.Data == messageId.ToString()))
+        {
+            // Retry-safe: this message's counters were already applied.
+            return;
+        }
+
         conversation.RecordMessage(messageId, inbound, preview, at);
         await dbContext.SaveChangesAsync(cancellationToken);
     }

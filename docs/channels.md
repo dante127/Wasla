@@ -28,7 +28,7 @@ Concretely:
 
 ## 2. The abstraction
 
-Interfaces live in `Wasla.Channels.Application/Contracts`; implementations in
+Interfaces live in `Wasla.BuildingBlocks.Application.ChannelAdapters` (hoisted from the Channels module in Phase 5 so Messages can dispatch without referencing Channels - see ADR-0011); implementations in
 `Wasla.Channels.Infrastructure/Adapters/<Provider>/`.
 
 ```csharp

@@ -30,6 +30,11 @@ public sealed class MessagesModule : IModule
         services.AddScoped<IMessagesUnitOfWork, MessagesUnitOfWork>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
 
+        services.AddScoped<IOutboxRepository, OutboxRepository>();
+        services.AddScoped<OutboxClaimer>();
+        services.AddScoped<OutboxMessageDispatcher>();
+        services.AddScoped<OutboxProcessor>();
+
         services.AddScoped<SendMessageHandler>();
         services.AddScoped<ListMessagesHandler>();
         services.AddScoped<UploadMediaHandler>();

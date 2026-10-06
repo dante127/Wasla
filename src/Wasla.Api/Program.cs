@@ -21,7 +21,10 @@ using Wasla.Api.Seeding;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Application.Security;
+using Wasla.BuildingBlocks.Application.Abstractions;
 using Wasla.BuildingBlocks.Infrastructure;
+using Wasla.BuildingBlocks.Infrastructure.Security;
+using Wasla.Api.Workers;
 using Wasla.BuildingBlocks.Infrastructure.Configuration;
 using Wasla.BuildingBlocks.Web;
 using Wasla.BuildingBlocks.Web.Permissions;
@@ -69,6 +72,18 @@ builder.Services
 builder.Services
     .AddOptions<TelemetryOptions>()
     .Bind(builder.Configuration.GetSection(TelemetryOptions.SectionName));
+
+builder.Services
+    .AddOptions<SecurityOptions>()
+    .Bind(builder.Configuration.GetSection(SecurityOptions.SectionName));
+
+builder.Services
+    .AddOptions<WorkerOptions>()
+    .Bind(builder.Configuration.GetSection(WorkerOptions.SectionName));
+
+builder.Services.AddSingleton<IStringEncryptor, AesGcmStringEncryptor>();
+builder.Services.AddHostedService<InboxWorker>();
+builder.Services.AddHostedService<OutboxWorker>();
 
 // ------------------------------------------- infrastructure (all lazy) ------
 // Nothing below connects at startup; connections happen on first use.
@@ -238,6 +253,7 @@ app.MapChannelEndpoints();
 app.MapConversationEndpoints();
 app.MapMediaEndpoints();
 app.MapQuickReplyEndpoints();
+app.MapWebhookEndpoints();
 
 app.Run();
 

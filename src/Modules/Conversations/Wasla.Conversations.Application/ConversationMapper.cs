@@ -1,7 +1,6 @@
-using Wasla.Channels.Application.Contracts;
+using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.Conversations.Domain;
 using Wasla.Conversations.Application.Contracts;
-using Wasla.BuildingBlocks.Application.Contracts;
 
 namespace Wasla.Conversations.Application;
 

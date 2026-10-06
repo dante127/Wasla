@@ -12,10 +12,13 @@ public sealed class MessagesDbContext(DbContextOptions<MessagesDbContext> option
 
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
 
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         ApplyTenantFilter<Message>(modelBuilder);
         ApplyTenantFilter<MediaFile>(modelBuilder);
+        ApplyTenantFilter<OutboxMessage>(modelBuilder);
     }
 }

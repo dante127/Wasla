@@ -25,6 +25,20 @@ public sealed class ConversationRepository(ConversationsDbContext dbContext) : I
                 conversation => conversation.TenantId == tenantId && conversation.Id == conversationId,
                 cancellationToken);
 
+    public Task<Conversation?> GetLatestActiveForCustomerChannelAsync(
+        TenantId tenantId,
+        Guid customerId,
+        Guid channelId,
+        CancellationToken cancellationToken) =>
+        dbContext.Conversations
+            .Where(conversation => conversation.TenantId == tenantId
+                && conversation.CustomerId == customerId
+                && conversation.ChannelId == channelId
+                && conversation.Status != ConversationStatus.Closed
+                && conversation.Status != ConversationStatus.Archived)
+            .OrderByDescending(conversation => conversation.UpdatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<(List<Conversation> Items, bool HasMore)> ListAsync(
         TenantId tenantId,
         ConversationListQuery query,

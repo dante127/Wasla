@@ -1,4 +1,5 @@
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Domain;
 using Wasla.Conversations.Application.Contracts;
 using Wasla.Messages.Application.Abstractions;
 using Wasla.Messages.Domain;
@@ -14,6 +15,7 @@ public sealed class SendMessageHandler(
     IConversationInfoProvider conversations,
     IMessageRepository messages,
     IConversationWriter conversationWriter,
+    IOutboxRepository outbox,
     IMessagesUnitOfWork unitOfWork,
     IClock clock)
 {
@@ -106,6 +108,19 @@ public sealed class SendMessageHandler(
         }
 
         await messages.AddAsync(message, cancellationToken);
+
+        var outboxPayload = System.Text.Json.JsonSerializer.Serialize(
+            new OutboxSendPayload(
+                message.Id.Value,
+                conversationId,
+                messageType.ToString(),
+                message.Body,
+                mediaIds.Select(id => id.Value).ToList()),
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+
+        await outbox.AddAsync(
+            OutboxMessage.Create(tenantId, OutboxMessage.MessageQueuedForSendKind, outboxPayload, now),
+            cancellationToken);
 
         var preview = message.Body ?? $"({messageType})";
         await conversationWriter.RecordOutboundMessageAsync(

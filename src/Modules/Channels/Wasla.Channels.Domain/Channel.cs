@@ -43,6 +43,8 @@ public sealed class Channel : AggregateRoot<ChannelId>, ITenantOwned
 
     public DateTimeOffset ConnectedAt { get; private set; }
 
+    public DateTimeOffset? LastHealthCheckAt { get; private set; }
+
     public static Channel Create(
         TenantId tenantId,
         ChannelType type,
@@ -81,6 +83,34 @@ public sealed class Channel : AggregateRoot<ChannelId>, ITenantOwned
     public void Activate() => Status = ChannelStatus.Active;
 
     public void Disable() => Status = ChannelStatus.Disabled;
+
+    public void SetExternalAccountId(string externalAccountId) => ExternalAccountId = externalAccountId.Trim();
+
+    public void Degrade()
+{
+        if (Status == ChannelStatus.Active)
+        {
+            Status = ChannelStatus.Degraded;
+        }
+    }
+
+    public void Recover()
+{
+        if (Status == ChannelStatus.Degraded)
+        {
+            Status = ChannelStatus.Active;
+        }
+    }
+
+    public void Reconnect()
+{
+        if (Status == ChannelStatus.Disabled)
+        {
+            Status = ChannelStatus.Draft;
+        }
+    }
+
+    public void RecordHealthCheck(DateTimeOffset now) => LastHealthCheckAt = now;
 }
 
 public sealed record ChannelCreated(

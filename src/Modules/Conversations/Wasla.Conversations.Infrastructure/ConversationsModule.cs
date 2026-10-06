@@ -10,6 +10,7 @@ using Wasla.BuildingBlocks.Infrastructure.Configuration;
 using Wasla.Conversations.Application;
 using Wasla.Conversations.Application.Abstractions;
 using Wasla.Conversations.Application.Contracts;
+using Wasla.Conversations.Application.Services;
 
 namespace Wasla.Conversations.Infrastructure;
 
@@ -29,6 +30,7 @@ public sealed class ConversationsModule : IModule
         services.AddScoped<IQuickReplyRepository, QuickReplyRepository>();
         services.AddScoped<IConversationInfoProvider, ConversationInfoProvider>();
         services.AddScoped<IConversationWriter, ConversationWriter>();
+        services.AddScoped<IConversationResolver, ConversationResolver>();
         services.AddScoped<IConversationsUnitOfWork, ConversationsUnitOfWork>();
 
         services.AddScoped<ListTagsHandler>();

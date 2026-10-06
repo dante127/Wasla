@@ -35,6 +35,19 @@ public sealed class CustomerInfoProvider(ICustomerRepository customers) : ICusto
         return found.ToDictionary(customer => customer.Id.Value, ToSummary);
     }
 
+    public async Task<string?> GetChannelExternalIdAsync(
+        TenantId tenantId,
+        Guid customerId,
+        ChannelType channelType,
+        CancellationToken cancellationToken)
+{
+        var customer = await customers.GetByIdAsync(tenantId, new CustomerId(customerId), cancellationToken);
+
+        return customer?.Identities
+            .FirstOrDefault(identity => identity.ChannelType == channelType)
+            ?.ExternalId;
+    }
+
     private static CustomerSummary ToSummary(Customer customer) =>
         new(
             customer.Id.Value,

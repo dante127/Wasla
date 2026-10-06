@@ -15,6 +15,10 @@ public sealed class ChannelRepository(ChannelsDbContext dbContext) : IChannelRep
             channel => channel.TenantId == tenantId && channel.Id == channelId,
             cancellationToken);
 
+    public Task<Channel?> GetByIdForSystemAsync(ChannelId channelId, CancellationToken cancellationToken) =>
+        // Webhook resolution: the opaque channel id is the capability; no tenant filter relies here.
+        dbContext.Channels.FirstOrDefaultAsync(channel => channel.Id == channelId, cancellationToken);
+
     public Task<List<Channel>> ListAsync(TenantId tenantId, CancellationToken cancellationToken) =>
         dbContext.Channels
             .Where(channel => channel.TenantId == tenantId)

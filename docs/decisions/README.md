@@ -15,6 +15,7 @@ Consequences / Status). This index is updated in the same commit as any ADR chan
 | [0008](0008-s3-compatible-media-storage.md) | S3-compatible media storage; metadata only in PostgreSQL | Accepted | 2026-10-06 |
 | [0009](0009-ddd-cqrs-lite-and-testing-strategy.md) | DDD boundaries, CQRS-lite, and the testing strategy | Accepted | 2026-10-06 |
 | [0010](0010-postgres-fulltext-search-first.md) | PostgreSQL full-text search first, behind a search port | Accepted | 2026-10-06 |
+- [ADR-0011](0011-channel-adapter-contracts-hoisted.md) - Channel adapter contracts hoisted to BuildingBlocks (Phase 5)
 
 ## Template
 

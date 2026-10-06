@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Application.ChannelAdapters;
 using Wasla.BuildingBlocks.Domain;
 using Wasla.Channels.Application.Abstractions;
 using Wasla.Channels.Domain;
@@ -159,6 +160,13 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         await channelRepository.AddAsync(whatsApp, CancellationToken.None);
         await channelRepository.AddAsync(telegram, CancellationToken.None);
         await channelsDb.SaveChangesAsync();
+
+        var credentialStore = services.GetRequiredService<IChannelCredentialStore>();
+
+        await credentialStore.SetAsync(tenant.Id, whatsApp.Id.Value, ChannelCredentialKeys.AccessToken, "dev-whatsapp-access-token", CancellationToken.None);
+        await credentialStore.SetAsync(tenant.Id, whatsApp.Id.Value, ChannelCredentialKeys.AppSecret, "dev-whatsapp-app-secret", CancellationToken.None);
+        await credentialStore.SetAsync(tenant.Id, whatsApp.Id.Value, ChannelCredentialKeys.VerifyToken, "wasla-dev-verify", CancellationToken.None);
+        await credentialStore.SetAsync(tenant.Id, whatsApp.Id.Value, ChannelCredentialKeys.PhoneNumberId, "+963991234567", CancellationToken.None);
 
         var laylaConversation = Conversation.Create(tenant.Id, layla.Id.Value, whatsApp.Id.Value, now.AddMinutes(-30));
         laylaConversation.AssignToUser(agent.Id.Value, null, now.AddMinutes(-25));

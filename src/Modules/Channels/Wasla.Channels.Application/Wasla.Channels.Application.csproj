@@ -3,6 +3,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Wasla.BuildingBlocks\Wasla.BuildingBlocks.csproj" />
     <ProjectReference Include="..\Wasla.Channels.Domain\Wasla.Channels.Domain.csproj" />
+    <ProjectReference Include="..\..\Conversations\Wasla.Conversations.Application\Wasla.Conversations.Application.csproj" />
+    <ProjectReference Include="..\..\Messages\Wasla.Messages.Application\Wasla.Messages.Application.csproj" />
+    <ProjectReference Include="..\..\Customers\Wasla.Customers.Application\Wasla.Customers.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

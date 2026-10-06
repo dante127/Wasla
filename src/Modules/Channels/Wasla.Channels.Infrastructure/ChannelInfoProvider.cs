@@ -1,6 +1,6 @@
 using Wasla.BuildingBlocks.Domain;
 using Wasla.Channels.Application.Abstractions;
-using Wasla.Channels.Application.Contracts;
+using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.Channels.Domain;
 
 namespace Wasla.Channels.Infrastructure;

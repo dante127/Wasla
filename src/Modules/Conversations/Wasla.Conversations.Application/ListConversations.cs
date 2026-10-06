@@ -1,8 +1,7 @@
 using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Application.Paging;
-using Wasla.Channels.Application.Contracts;
-using Wasla.Conversations.Application.Abstractions;
 using Wasla.BuildingBlocks.Application.Contracts;
+using Wasla.Conversations.Application.Abstractions;
 using Wasla.Conversations.Application.Contracts;
 
 namespace Wasla.Conversations.Application;

@@ -1,13 +1,18 @@
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Application.ChannelAdapters;
 using Wasla.BuildingBlocks.Domain;
 using Wasla.Conversations.Application.Abstractions;
 using Wasla.Conversations.Domain;
@@ -17,9 +22,12 @@ using Wasla.Customers.Domain;
 using Wasla.Customers.Infrastructure;
 using Wasla.Channels.Application.Abstractions;
 using Wasla.Channels.Domain;
+using Wasla.Channels.Application.Services;
 using Wasla.Channels.Infrastructure;
+using Wasla.Channels.Infrastructure.Adapters.WhatsApp;
 using Wasla.Messages.Application.Abstractions;
 using Wasla.Messages.Domain;
+using Wasla.Messages.Application;
 using Wasla.Messages.Infrastructure;
 using Wasla.Identity.Application.Abstractions;
 using Wasla.Identity.Application.Roles;
@@ -51,6 +59,12 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
 
     public const string BetaCustomerName = "Zed Beta";
 
+    public const string WhatsAppAppSecret = "test-app-secret";
+
+    public const string WhatsAppVerifyToken = "test-verify-token";
+
+    public const string AlphaWhatsAppExternalId = "963111111111";
+
     private PostgreSqlContainer? _postgres;
     private WebApplicationFactory<Program>? _factory;
 
@@ -70,7 +84,13 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
 
     public Guid BetaConversationId { get; private set; }
 
+    public Guid AlphaWhatsAppChannelId { get; private set; }
+
+    public Guid BetaWhatsAppChannelId { get; private set; }
+
     public HttpClient CreateClient() => GetFactory().CreateClient();
+
+    public IServiceProvider Services => GetFactory().Services;
 
     public async Task InitializeAsync()
     {
@@ -256,6 +276,21 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         await channelRepository.AddAsync(betaWhatsApp, CancellationToken.None);
         await channelsDb.SaveChangesAsync();
 
+        AlphaWhatsAppChannelId = alphaWhatsApp.Id.Value;
+        BetaWhatsAppChannelId = betaWhatsApp.Id.Value;
+
+        var credentialStore = services.GetRequiredService<IChannelCredentialStore>();
+
+        await credentialStore.SetAsync(alpha.Id, alphaWhatsApp.Id.Value, ChannelCredentialKeys.AccessToken, "test-access-token", CancellationToken.None);
+        await credentialStore.SetAsync(alpha.Id, alphaWhatsApp.Id.Value, ChannelCredentialKeys.AppSecret, WhatsAppAppSecret, CancellationToken.None);
+        await credentialStore.SetAsync(alpha.Id, alphaWhatsApp.Id.Value, ChannelCredentialKeys.VerifyToken, WhatsAppVerifyToken, CancellationToken.None);
+        await credentialStore.SetAsync(alpha.Id, alphaWhatsApp.Id.Value, ChannelCredentialKeys.PhoneNumberId, AlphaWhatsAppExternalId, CancellationToken.None);
+
+        await credentialStore.SetAsync(beta.Id, betaWhatsApp.Id.Value, ChannelCredentialKeys.AccessToken, "test-access-token-b", CancellationToken.None);
+        await credentialStore.SetAsync(beta.Id, betaWhatsApp.Id.Value, ChannelCredentialKeys.AppSecret, WhatsAppAppSecret, CancellationToken.None);
+        await credentialStore.SetAsync(beta.Id, betaWhatsApp.Id.Value, ChannelCredentialKeys.VerifyToken, WhatsAppVerifyToken + "-b", CancellationToken.None);
+        await credentialStore.SetAsync(beta.Id, betaWhatsApp.Id.Value, ChannelCredentialKeys.PhoneNumberId, "963999999999", CancellationToken.None);
+
         var alphaConversation = Conversation.Create(alpha.Id, alice.Id.Value, alphaWhatsApp.Id.Value, now.AddMinutes(-10));
         alphaConversation.AddTag(vipTag.Id.Value, null, now.AddMinutes(-9));
         var alphaInbound = Message.CreateInbound(alpha.Id, alphaConversation.Id.Value, alphaWhatsApp.Id.Value, MessageType.Text, "Hello, I need help with my order", "seed-alpha-1", now.AddMinutes(-8));
@@ -276,6 +311,27 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         await conversationsDb.SaveChangesAsync();
     }
 
+    public static string ComputeSignature(string appSecret, byte[] body)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(appSecret));
+
+        return "sha256=" + Convert.ToHexString(hmac.ComputeHash(body)).ToLowerInvariant();
+    }
+
+    public async Task<int> ProcessInboxAsync(CancellationToken cancellationToken = default)
+    {
+        using var scope = GetFactory().Services.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<InboxProcessor>().ProcessPendingAsync(50, cancellationToken);
+    }
+
+    public async Task<int> DispatchOutboxAsync(CancellationToken cancellationToken = default)
+    {
+        using var scope = GetFactory().Services.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<OutboxProcessor>().ProcessPendingAsync(50, cancellationToken);
+    }
+
     private sealed class ApiFactory(string connectionString) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -290,11 +346,88 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
                     ["Redis:ConnectionString"] = "localhost:6379",
                     ["Jwt:SigningKey"] = "integration-test-signing-key-0123456789abcdef",
                     ["Telemetry:OtlpEndpoint"] = null,
+                    ["Security:EncryptionKey"] = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+                    ["WhatsApp:BaseUrl"] = "http://127.0.0.1:9/",
+                    ["WhatsApp:SkipConnectVerification"] = "true",
+                    ["Workers:InboxEnabled"] = "false",
+                    ["Workers:OutboxEnabled"] = "false",
                 });
+            });
+
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IChannelAdapterRegistry>();
+                services.AddScoped<IChannelAdapterRegistry>(provider => new TestChannelAdapterRegistry(provider));
+                services.AddSingleton<TestOutboundSink>();
             });
         }
     }
 }
+
+    public sealed class TestOutboundSink
+    {
+        private readonly object _gate = new();
+        private readonly List<ChannelOutboundMessage> _messages = [];
+        private readonly List<ChannelOutboundMediaMessage> _mediaMessages = [];
+
+        public IReadOnlyList<ChannelOutboundMessage> Messages
+        {
+            get { lock (_gate) { return _messages.ToList(); } }
+        }
+
+        public IReadOnlyList<ChannelOutboundMediaMessage> MediaMessages
+        {
+            get { lock (_gate) { return _mediaMessages.ToList(); } }
+        }
+
+        public void Record(ChannelOutboundMessage message)
+        {
+            lock (_gate) { _messages.Add(message); }
+        }
+
+        public void RecordMedia(ChannelOutboundMediaMessage message)
+        {
+            lock (_gate) { _mediaMessages.Add(message); }
+        }
+    }
+
+    public sealed class TestChannelAdapterRegistry(IServiceProvider provider) : IChannelAdapterRegistry
+    {
+        public IChannelAdapter? Resolve(ChannelType channelType) =>
+            channelType == ChannelType.WhatsApp
+                ? new TestChannelAdapter(
+                    provider.GetRequiredService<WhatsAppCloudAdapter>(),
+                    provider.GetRequiredService<TestOutboundSink>())
+                : null;
+    }
+
+    /// <summary>Real verification/normalization; stubbed transport for sends (no live Meta calls).</summary>
+    public sealed class TestChannelAdapter(WhatsAppCloudAdapter inner, TestOutboundSink sink) : IChannelAdapter
+    {
+        public ChannelType ChannelType => inner.ChannelType;
+
+        public ChannelCapabilities Capabilities => inner.Capabilities;
+
+        public Task<WebhookVerificationResult> VerifyWebhookAsync(ChannelWebhookContext context, CancellationToken cancellationToken) =>
+            inner.VerifyWebhookAsync(context, cancellationToken);
+
+        public Task<IReadOnlyList<NormalizedInboundEvent>> NormalizeInboundAsync(ChannelWebhookContext context, CancellationToken cancellationToken) =>
+            inner.NormalizeInboundAsync(context, cancellationToken);
+
+        public Task<ChannelSendResult> SendMessageAsync(ChannelOutboundMessage message, CancellationToken cancellationToken)
+        {
+            sink.Record(message);
+
+            return Task.FromResult(ChannelSendResult.Success($"wamid.TEST-{message.MessageId:N}"));
+        }
+
+        public Task<ChannelSendResult> SendMediaAsync(ChannelOutboundMediaMessage message, CancellationToken cancellationToken)
+        {
+            sink.RecordMedia(message);
+
+            return Task.FromResult(ChannelSendResult.Success($"wamid.TEST-{message.MessageId:N}"));
+        }
+    }
 
 [CollectionDefinition("api")]
 public sealed class ApiCollection : ICollectionFixture<IntegrationEnvironment>

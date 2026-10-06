@@ -9,6 +9,10 @@ public interface IMessageRepository
 
     Task<Message?> GetByIdempotencyKeyAsync(TenantId tenantId, string idempotencyKey, CancellationToken cancellationToken);
 
+    Task<Message?> GetByIdAsync(TenantId tenantId, Guid messageId, CancellationToken cancellationToken);
+
+    Task<Message?> FindByProviderMessageIdAsync(TenantId tenantId, string providerMessageId, CancellationToken cancellationToken);
+
     Task<(List<Message> Items, bool HasMore)> ListByConversationAsync(
         TenantId tenantId,
         Guid conversationId,
