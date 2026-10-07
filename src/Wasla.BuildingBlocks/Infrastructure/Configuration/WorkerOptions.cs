@@ -19,4 +19,10 @@ public sealed class WorkerOptions
 
     /// <summary>Attempt budget before an item is dead-lettered.</summary>
     public int MaxAttempts { get; set; } = 8;
+
+    /// <summary>Whether the analytics recompute worker runs in this host.</summary>
+    public bool AnalyticsEnabled { get; set; } = true;
+
+    /// <summary>Analytics recompute interval in minutes.</summary>
+    public int AnalyticsIntervalMinutes { get; set; } = 5;
 }

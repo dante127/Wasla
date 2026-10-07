@@ -10,6 +10,7 @@ using Wasla.BuildingBlocks.Application.Abstractions;
 using Wasla.BuildingBlocks.Infrastructure.Configuration;
 using Wasla.Messages.Application;
 using Wasla.Messages.Application.Abstractions;
+using Wasla.Messages.Application.Contracts;
 using Wasla.Messages.Infrastructure.Repositories;
 
 namespace Wasla.Messages.Infrastructure;
@@ -27,6 +28,7 @@ public sealed class MessagesModule : IModule
         services.AddOptions<StorageOptions>().Bind(configuration.GetSection(StorageOptions.SectionName));
 
         services.AddScoped<IMessageRepository, MessageRepository>();
+        services.AddScoped<IMessageAnalyticsSource, MessageAnalyticsSource>();
         services.AddScoped<IMessagesUnitOfWork, MessagesUnitOfWork>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
 

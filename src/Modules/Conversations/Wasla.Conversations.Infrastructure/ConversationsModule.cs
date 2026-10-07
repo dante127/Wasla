@@ -30,6 +30,7 @@ public sealed class ConversationsModule : IModule
         services.AddScoped<IQuickReplyRepository, QuickReplyRepository>();
         services.AddScoped<IConversationInfoProvider, ConversationInfoProvider>();
         services.AddScoped<IConversationWriter, ConversationWriter>();
+        services.AddScoped<IConversationAnalyticsSource, ConversationAnalyticsSource>();
         services.AddScoped<IConversationResolver, ConversationResolver>();
         services.AddScoped<IConversationsUnitOfWork, ConversationsUnitOfWork>();
 

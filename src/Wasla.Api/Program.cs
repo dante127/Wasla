@@ -86,6 +86,7 @@ builder.Services
 builder.Services.AddSingleton<IStringEncryptor, AesGcmStringEncryptor>();
 builder.Services.AddHostedService<InboxWorker>();
 builder.Services.AddHostedService<OutboxWorker>();
+builder.Services.AddHostedService<AnalyticsRecomputeWorker>();
 
 // ------------------------------------------- infrastructure (all lazy) ------
 // Nothing below connects at startup; connections happen on first use.
@@ -276,6 +277,7 @@ app.MapConversationEndpoints();
 app.MapMediaEndpoints();
 app.MapQuickReplyEndpoints();
 app.MapWebhookEndpoints();
+app.MapAnalyticsEndpoints();
 
 app.MapHub<InboxHub>("/hubs/inbox");
 

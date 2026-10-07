@@ -11,10 +11,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
 using Testcontainers.Redis;
+using Wasla.Analytics.Application;
+using Wasla.Analytics.Infrastructure;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Application.ChannelAdapters;
 using Wasla.BuildingBlocks.Domain;
+using Wasla.BuildingBlocks.Infrastructure;
 using Wasla.Conversations.Application.Abstractions;
 using Wasla.Conversations.Domain;
 using Wasla.Conversations.Infrastructure;
@@ -131,6 +134,7 @@ await services.GetRequiredService<ChannelsDbContext>().Database.MigrateAsync();
 await services.GetRequiredService<ConversationsDbContext>().Database.MigrateAsync();
 await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
 
+await services.GetRequiredService<AnalyticsDbContext>().Database.MigrateAsync();
         await SeedAsync(services);
     }
 
@@ -360,6 +364,14 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         return await scope.ServiceProvider.GetRequiredService<OutboxProcessor>().ProcessPendingAsync(50, cancellationToken);
     }
 
+    public async Task<int> RecomputeAnalyticsAsync(Guid tenantId)
+    {
+        using var scope = GetFactory().Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<TenantContext>().Resolve(new TenantId(tenantId));
+
+        return await scope.ServiceProvider.GetRequiredService<AnalyticsRecomputeService>().RecomputeAsync(CancellationToken.None);
+    }
+
     private sealed class ApiFactory(string connectionString, string redisConnectionString) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -379,6 +391,7 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
                     ["WhatsApp:SkipConnectVerification"] = "true",
                     ["Workers:InboxEnabled"] = "false",
                     ["Workers:OutboxEnabled"] = "false",
+                    ["Workers:AnalyticsEnabled"] = "false",
                     ["Telegram:BaseUrl"] = "http://127.0.0.1:9/",
                     ["Telegram:SkipConnectVerification"] = "true",
                 });

@@ -24,6 +24,7 @@ public sealed class TenancyModule : IModule
 
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<ITenantInfoProvider, TenantInfoProvider>();
+        services.AddScoped<ITenantDirectory, TenantDirectory>();
         services.AddScoped<ITenancyUnitOfWork, TenancyUnitOfWork>();
         services.AddScoped<CreateTenantHandler>();
         services.AddScoped<GetCurrentTenantHandler>();

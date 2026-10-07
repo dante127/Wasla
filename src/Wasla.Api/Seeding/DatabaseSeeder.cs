@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Wasla.Analytics.Infrastructure;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Application.ChannelAdapters;
@@ -45,6 +46,7 @@ await services.GetRequiredService<CustomersDbContext>().Database.MigrateAsync();
 await services.GetRequiredService<ChannelsDbContext>().Database.MigrateAsync();
 await services.GetRequiredService<ConversationsDbContext>().Database.MigrateAsync();
 await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
+        await services.GetRequiredService<AnalyticsDbContext>().Database.MigrateAsync();
         logger.LogInformation("Database migrations applied.");
 
         var tenancyDb = services.GetRequiredService<TenancyDbContext>();
