@@ -1,4 +1,5 @@
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.BuildingBlocks.Domain;
 using Wasla.Conversations.Application.Contracts;
 using Wasla.Messages.Application.Abstractions;
@@ -17,7 +18,8 @@ public sealed class SendMessageHandler(
     IConversationWriter conversationWriter,
     IOutboxRepository outbox,
     IMessagesUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IRealtimePublisher realtime)
 {
     public async Task<Result<MessageItem>> HandleAsync(
         Guid conversationId,
@@ -132,6 +134,12 @@ public sealed class SendMessageHandler(
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await realtime.PublishToTenantAsync(
+            tenantId,
+            RealtimeEvents.NewMessage,
+            new NewMessageEvent(conversationId, message.Id.Value, "Outbound", preview, now),
+            cancellationToken);
 
         var items = await MapAsync(tenantId, [message], cancellationToken);
 

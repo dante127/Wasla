@@ -17,7 +17,8 @@ public sealed class AssignConversationHandler(
     ITagInfoProvider tags,
     IMembershipVerifier membershipVerifier,
     IConversationsUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IRealtimePublisher realtime)
 {
     public async Task<Result<ConversationDetail>> HandleAsync(
         Guid conversationId,
@@ -66,6 +67,12 @@ public sealed class AssignConversationHandler(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await realtime.PublishToTenantAsync(
+            tenantId,
+            RealtimeEvents.ConversationAssigned,
+            new ConversationAssignedEvent(conversationId, conversation.AssignedUserId, conversation.AssignedTeamId, now),
+            cancellationToken);
 
         var customerLookup = await customers.GetManyAsync(tenantId, [conversation.CustomerId], cancellationToken);
         var channelLookup = await channels.GetManyAsync(tenantId, [conversation.ChannelId], cancellationToken);

@@ -28,8 +28,8 @@ implementation into the core CRM domain. Provider complexity lives at the edges.
 | 4 | Conversations (unified inbox core) | ✅ Complete |
 | 5 | WhatsApp channel adapter | ✅ Complete |
 | 6 | Telegram channel adapter | ✅ Complete |
-| 7 | Real-time (SignalR) | ⏳ Next |
-| 8 | Analytics (basic) | ⏳ Planned |
+| 7 | Real-time (SignalR) | ✅ Complete |
+| 8 | Analytics (basic) | ⏳ Next |
 | 9 | Hardening (security, isolation, perf, failure testing) | ⏳ Planned |
 
 Post-MVP (designed for, not built): Campaigns, Automation, Bot Builder, Commerce,

@@ -15,7 +15,8 @@ public sealed class ChangeConversationStatusHandler(
     IChannelInfoProvider channels,
     ITagInfoProvider tags,
     IConversationsUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IRealtimePublisher realtime)
 {
     public async Task<Result<ConversationDetail>> HandleAsync(
         Guid conversationId,
@@ -50,6 +51,12 @@ public sealed class ChangeConversationStatusHandler(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await realtime.PublishToTenantAsync(
+            tenantId,
+            RealtimeEvents.ConversationUpdated,
+            new ConversationUpdatedEvent(conversationId, "status", targetStatus.ToString(), clock.UtcNow),
+            cancellationToken);
 
         var customerLookup = await customers.GetManyAsync(tenantId, [conversation.CustomerId], cancellationToken);
         var channelLookup = await channels.GetManyAsync(tenantId, [conversation.ChannelId], cancellationToken);

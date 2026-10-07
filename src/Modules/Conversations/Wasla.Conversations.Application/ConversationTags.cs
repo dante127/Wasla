@@ -1,4 +1,5 @@
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.Conversations.Application.Abstractions;
 using Wasla.Conversations.Application.Contracts;
 using Wasla.Conversations.Domain;
@@ -12,7 +13,8 @@ public sealed class AddConversationTagsHandler(
     IConversationRepository conversations,
     ITagInfoProvider tags,
     IConversationsUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IRealtimePublisher realtime)
 {
     public async Task<Result<IReadOnlyList<ConversationTagItem>>> HandleAsync(
         Guid conversationId,
@@ -57,6 +59,15 @@ public sealed class AddConversationTagsHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        foreach (var tagId in tagIds.Where(id => conversation.Tags.Any(tag => tag.TagId == id)))
+        {
+            await realtime.PublishToTenantAsync(
+                tenantId,
+                RealtimeEvents.ConversationTagged,
+                new ConversationTaggedEvent(conversationId, tagId, true, clock.UtcNow),
+                cancellationToken);
+        }
+
         var lookup = await tags.GetManyAsync(tenantId, tagIds, cancellationToken);
 
         return Result.Success<IReadOnlyList<ConversationTagItem>>(
@@ -70,7 +81,8 @@ public sealed class RemoveConversationTagHandler(
     ICurrentUser currentUser,
     IConversationRepository conversations,
     IConversationsUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IRealtimePublisher realtime)
 {
     public async Task<Result> HandleAsync(
         Guid conversationId,
@@ -98,6 +110,12 @@ public sealed class RemoveConversationTagHandler(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await realtime.PublishToTenantAsync(
+            tenantId,
+            RealtimeEvents.ConversationTagged,
+            new ConversationTaggedEvent(conversationId, tagId, false, clock.UtcNow),
+            cancellationToken);
 
         return Result.Success();
     }

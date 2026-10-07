@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
+using Testcontainers.Redis;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Application.ChannelAdapters;
@@ -69,6 +70,8 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
     public const string TelegramWebhookSecret = "test-telegram-secret";
 
     private PostgreSqlContainer? _postgres;
+
+    private RedisContainer? _redis;
     private WebApplicationFactory<Program>? _factory;
 
     public Guid AlphaTenantId { get; private set; }
@@ -97,6 +100,8 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
 
     public IServiceProvider Services => GetFactory().Services;
 
+    public HttpMessageHandler CreateServerHandler() => GetFactory().Server.CreateHandler();
+
     public async Task InitializeAsync()
     {
         _postgres = new PostgreSqlBuilder("postgres:17-alpine")
@@ -107,7 +112,10 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
 
         await _postgres.StartAsync();
 
-        _factory = new ApiFactory(_postgres.GetConnectionString());
+        _redis = new RedisBuilder("redis:7-alpine").Build();
+        await _redis.StartAsync();
+
+        _factory = new ApiFactory(_postgres.GetConnectionString(), _redis.GetConnectionString());
         _ = _factory.CreateClient(); // starts the host
 
         using var scope = _factory.Services.CreateScope();
@@ -133,6 +141,11 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         if (_postgres is not null)
         {
             await _postgres.DisposeAsync();
+        }
+
+        if (_redis is not null)
+        {
+            await _redis.DisposeAsync();
         }
     }
 
@@ -347,7 +360,7 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         return await scope.ServiceProvider.GetRequiredService<OutboxProcessor>().ProcessPendingAsync(50, cancellationToken);
     }
 
-    private sealed class ApiFactory(string connectionString) : WebApplicationFactory<Program>
+    private sealed class ApiFactory(string connectionString, string redisConnectionString) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -358,7 +371,7 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Database:ConnectionString"] = connectionString,
-                    ["Redis:ConnectionString"] = "localhost:6379",
+                    ["Redis:ConnectionString"] = redisConnectionString,
                     ["Jwt:SigningKey"] = "integration-test-signing-key-0123456789abcdef",
                     ["Telemetry:OtlpEndpoint"] = null,
                     ["Security:EncryptionKey"] = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",

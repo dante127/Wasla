@@ -17,9 +17,11 @@ using Wasla.Analytics.Infrastructure;
 using Wasla.Api.Configuration;
 using Wasla.Api.Endpoints;
 using Wasla.Api.Health;
+using Wasla.Api.Realtime;
 using Wasla.Api.Seeding;
 using Wasla.Audit.Infrastructure;
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.BuildingBlocks.Application.Security;
 using Wasla.BuildingBlocks.Application.Abstractions;
 using Wasla.BuildingBlocks.Infrastructure;
@@ -132,6 +134,23 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
             NameClaimType = WaslaClaimTypes.Name,
         };
+
+        bearerOptions.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                // SignalR upgrades cannot send headers; accept the token from the query for hub paths.
+                var accessToken = context.Request.Query["access_token"];
+
+                if (!string.IsNullOrEmpty(accessToken)
+                    && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            },
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -174,6 +193,9 @@ builder.Services
     .AddCheck<RedisHealthCheck>("redis", tags: ["ready"]);
 
 // -------------------------------------------------------------- web bits ----
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IRealtimePublisher, SignalRRealtimePublisher>();
+
 builder.Services.AddOpenApi();
 
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
@@ -254,6 +276,8 @@ app.MapConversationEndpoints();
 app.MapMediaEndpoints();
 app.MapQuickReplyEndpoints();
 app.MapWebhookEndpoints();
+
+app.MapHub<InboxHub>("/hubs/inbox");
 
 app.Run();
 

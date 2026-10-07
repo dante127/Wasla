@@ -1,4 +1,5 @@
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.Conversations.Application.Abstractions;
 using Wasla.Conversations.Domain;
 
@@ -9,7 +10,8 @@ public sealed class MarkConversationReadHandler(
     ITenantContext tenantContext,
     IConversationRepository conversations,
     IConversationsUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IRealtimePublisher realtime)
 {
     public async Task<Result> HandleAsync(Guid conversationId, CancellationToken cancellationToken)
     {
@@ -30,6 +32,12 @@ public sealed class MarkConversationReadHandler(
 
         conversation.MarkRead(clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await realtime.PublishToTenantAsync(
+            tenantId,
+            RealtimeEvents.ConversationUpdated,
+            new ConversationUpdatedEvent(conversationId, "read", null, clock.UtcNow),
+            cancellationToken);
 
         return Result.Success();
     }

@@ -1,4 +1,5 @@
 using Wasla.BuildingBlocks.Application;
+using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.Conversations.Application.Abstractions;
 using Wasla.Conversations.Domain;
 
@@ -10,7 +11,8 @@ public sealed class SetConversationPriorityHandler(
     ICurrentUser currentUser,
     IConversationRepository conversations,
     IConversationsUnitOfWork unitOfWork,
-    IClock clock)
+    IClock clock,
+    IRealtimePublisher realtime)
 {
     public async Task<Result> HandleAsync(
         Guid conversationId,
@@ -40,6 +42,12 @@ public sealed class SetConversationPriorityHandler(
 
         conversation.SetPriority(priority, currentUser.UserId, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await realtime.PublishToTenantAsync(
+            tenantId,
+            RealtimeEvents.ConversationUpdated,
+            new ConversationUpdatedEvent(conversationId, "priority", priority.ToString(), clock.UtcNow),
+            cancellationToken);
 
         return Result.Success();
     }

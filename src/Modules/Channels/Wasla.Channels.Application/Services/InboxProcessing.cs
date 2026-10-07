@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Application.ChannelAdapters;
+using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.BuildingBlocks.Domain;
 using Wasla.BuildingBlocks.Infrastructure;
 using Wasla.BuildingBlocks.Infrastructure.Configuration;
@@ -46,7 +47,8 @@ public sealed class InboundEventApplier(
     InboundMediaRecorder inboundMedia,
     IChannelsUnitOfWork unitOfWork,
     IOptions<WorkerOptions> workerOptions,
-    IClock clock) : IInboundEventApplier
+    IClock clock,
+    IRealtimePublisher realtime) : IInboundEventApplier
 {
     private static readonly Dictionary<string, string> EmptyStrings = [];
 
@@ -207,6 +209,12 @@ public sealed class InboundEventApplier(
             cancellationToken);
 
         await EnsureMediaAsync(inboxEvent, adapter, entity, message, cancellationToken);
+
+        await realtime.PublishToTenantAsync(
+            tenantId,
+            RealtimeEvents.NewMessage,
+            new NewMessageEvent(conversationId, entity.Id.Value, "Inbound", Preview(message.Body, message.Type), message.SentAt),
+            cancellationToken);
     }
 
     private async Task EnsureMediaAsync(
@@ -292,6 +300,12 @@ public sealed class InboundEventApplier(
         }
 
         await messagesUnitOfWork.SaveChangesAsync(cancellationToken);
+
+        await realtime.PublishToTenantAsync(
+            tenantId,
+            RealtimeEvents.MessageStatusChanged,
+            new MessageStatusChangedEvent(message.ConversationId, message.Id.Value, message.Status.ToString(), message.ProviderMessageId, now),
+            cancellationToken);
     }
 
     private async Task RecordFailureAsync(InboxEvent inboxEvent, string error, CancellationToken cancellationToken)
