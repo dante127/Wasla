@@ -24,6 +24,7 @@ using Wasla.Channels.Application.Abstractions;
 using Wasla.Channels.Domain;
 using Wasla.Channels.Application.Services;
 using Wasla.Channels.Infrastructure;
+using Wasla.Channels.Infrastructure.Adapters.Telegram;
 using Wasla.Channels.Infrastructure.Adapters.WhatsApp;
 using Wasla.Messages.Application.Abstractions;
 using Wasla.Messages.Domain;
@@ -65,6 +66,8 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
 
     public const string AlphaWhatsAppExternalId = "963111111111";
 
+    public const string TelegramWebhookSecret = "test-telegram-secret";
+
     private PostgreSqlContainer? _postgres;
     private WebApplicationFactory<Program>? _factory;
 
@@ -87,6 +90,8 @@ public sealed class IntegrationEnvironment : IAsyncLifetime
     public Guid AlphaWhatsAppChannelId { get; private set; }
 
     public Guid BetaWhatsAppChannelId { get; private set; }
+
+    public Guid AlphaTelegramChannelId { get; private set; }
 
     public HttpClient CreateClient() => GetFactory().CreateClient();
 
@@ -291,6 +296,16 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         await credentialStore.SetAsync(beta.Id, betaWhatsApp.Id.Value, ChannelCredentialKeys.VerifyToken, WhatsAppVerifyToken + "-b", CancellationToken.None);
         await credentialStore.SetAsync(beta.Id, betaWhatsApp.Id.Value, ChannelCredentialKeys.PhoneNumberId, "963999999999", CancellationToken.None);
 
+        var alphaTelegram = Channel.Create(alpha.Id, ChannelType.Telegram, "Alpha Telegram", "@wasla_alpha_bot", now);
+        alphaTelegram.Activate();
+        await channelRepository.AddAsync(alphaTelegram, CancellationToken.None);
+        await channelsDb.SaveChangesAsync();
+
+        AlphaTelegramChannelId = alphaTelegram.Id.Value;
+
+        await credentialStore.SetAsync(alpha.Id, alphaTelegram.Id.Value, ChannelCredentialKeys.AccessToken, "test-telegram-token", CancellationToken.None);
+        await credentialStore.SetAsync(alpha.Id, alphaTelegram.Id.Value, ChannelCredentialKeys.VerifyToken, TelegramWebhookSecret, CancellationToken.None);
+
         var alphaConversation = Conversation.Create(alpha.Id, alice.Id.Value, alphaWhatsApp.Id.Value, now.AddMinutes(-10));
         alphaConversation.AddTag(vipTag.Id.Value, null, now.AddMinutes(-9));
         var alphaInbound = Message.CreateInbound(alpha.Id, alphaConversation.Id.Value, alphaWhatsApp.Id.Value, MessageType.Text, "Hello, I need help with my order", "seed-alpha-1", now.AddMinutes(-8));
@@ -351,6 +366,8 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
                     ["WhatsApp:SkipConnectVerification"] = "true",
                     ["Workers:InboxEnabled"] = "false",
                     ["Workers:OutboxEnabled"] = "false",
+                    ["Telegram:BaseUrl"] = "http://127.0.0.1:9/",
+                    ["Telegram:SkipConnectVerification"] = "true",
                 });
             });
 
@@ -370,6 +387,8 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         private readonly List<ChannelOutboundMessage> _messages = [];
         private readonly List<ChannelOutboundMediaMessage> _mediaMessages = [];
 
+        private readonly List<InboundMediaReference> _mediaDownloads = [];
+
         public IReadOnlyList<ChannelOutboundMessage> Messages
         {
             get { lock (_gate) { return _messages.ToList(); } }
@@ -378,6 +397,16 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         public IReadOnlyList<ChannelOutboundMediaMessage> MediaMessages
         {
             get { lock (_gate) { return _mediaMessages.ToList(); } }
+        }
+
+        public void RecordDownload(InboundMediaReference reference)
+        {
+            lock (_gate) { _mediaDownloads.Add(reference); }
+        }
+
+        public IReadOnlyList<InboundMediaReference> MediaDownloads
+        {
+            get { lock (_gate) { return _mediaDownloads.ToList(); } }
         }
 
         public void Record(ChannelOutboundMessage message)
@@ -394,15 +423,20 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
     public sealed class TestChannelAdapterRegistry(IServiceProvider provider) : IChannelAdapterRegistry
     {
         public IChannelAdapter? Resolve(ChannelType channelType) =>
-            channelType == ChannelType.WhatsApp
-                ? new TestChannelAdapter(
+            channelType switch
+            {
+                ChannelType.WhatsApp => new TestChannelAdapter(
                     provider.GetRequiredService<WhatsAppCloudAdapter>(),
-                    provider.GetRequiredService<TestOutboundSink>())
-                : null;
+                    provider.GetRequiredService<TestOutboundSink>()),
+                ChannelType.Telegram => new TestChannelAdapter(
+                    provider.GetRequiredService<TelegramBotAdapter>(),
+                    provider.GetRequiredService<TestOutboundSink>()),
+                _ => null,
+            };
     }
 
     /// <summary>Real verification/normalization; stubbed transport for sends (no live Meta calls).</summary>
-    public sealed class TestChannelAdapter(WhatsAppCloudAdapter inner, TestOutboundSink sink) : IChannelAdapter
+    public sealed class TestChannelAdapter(IChannelAdapter inner, TestOutboundSink sink) : IChannelAdapter, IChannelMediaDownloader
     {
         public ChannelType ChannelType => inner.ChannelType;
 
@@ -413,6 +447,13 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
 
         public Task<IReadOnlyList<NormalizedInboundEvent>> NormalizeInboundAsync(ChannelWebhookContext context, CancellationToken cancellationToken) =>
             inner.NormalizeInboundAsync(context, cancellationToken);
+
+        public Task<DownloadedMedia?> DownloadAsync(TenantId tenantId, Guid channelId, InboundMediaReference media, CancellationToken cancellationToken)
+        {
+            sink.RecordDownload(media);
+
+            return Task.FromResult<DownloadedMedia?>(new DownloadedMedia([137, 80, 78, 71, 13, 10, 26, 10], "image/png", "photo.png"));
+        }
 
         public Task<ChannelSendResult> SendMessageAsync(ChannelOutboundMessage message, CancellationToken cancellationToken)
         {

@@ -24,10 +24,11 @@ public sealed class WhatsAppCloudAdapter(
     IOptions<WhatsAppOptions> options,
     IChannelCredentialStore credentials,
     IFileStorage fileStorage,
-    IClock clock) : IChannelAdapter, IChannelConnectionVerifier
+    IClock clock) : IChannelAdapter, IChannelConnectionVerifier, IChannelMediaDownloader
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private const string SignatureHeader = "X-Hub-Signature-256";
+    private const int MaxDownloadBytes = 16 * 1024 * 1024;
 
     public ChannelType ChannelType => ChannelType.WhatsApp;
 
@@ -721,6 +722,102 @@ public sealed class WhatsAppCloudAdapter(
         }
     }
 
+    public async Task<DownloadedMedia?> DownloadAsync(
+        TenantId tenantId,
+        Guid channelId,
+        InboundMediaReference media,
+        CancellationToken cancellationToken)
+    {
+        var accessToken = await credentials.GetAsync(
+            tenantId, channelId, ChannelCredentialKeys.AccessToken, cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var infoRequest = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"{options.Value.ApiVersion}/{media.ProviderMediaId}");
+
+            infoRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            using var infoResponse = await httpClient.SendAsync(infoRequest, cancellationToken);
+
+            if (!infoResponse.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var infoBody = await infoResponse.Content.ReadAsStringAsync(cancellationToken);
+
+            using var document = JsonDocument.Parse(infoBody);
+            var root = document.RootElement;
+
+            if (root.TryGetProperty("file_size", out var fileSize)
+                && fileSize.ValueKind == JsonValueKind.Number
+                && fileSize.GetInt64() > MaxDownloadBytes)
+            {
+                return null;
+            }
+
+            var url = root.TryGetProperty("url", out var urlElement) ? urlElement.GetString() : null;
+
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return null;
+            }
+
+            using var fileResponse = await httpClient.GetAsync(url, cancellationToken);
+
+            if (!fileResponse.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var bytes = await fileResponse.Content.ReadAsByteArrayAsync(cancellationToken);
+
+            if (bytes.Length > MaxDownloadBytes)
+            {
+                return null;
+            }
+
+            var mime = root.TryGetProperty("mime_type", out var mimeElement) ? mimeElement.GetString() : null;
+            var contentType = mime
+                ?? fileResponse.Content.Headers.ContentType?.MediaType
+                ?? "application/octet-stream";
+
+            return new DownloadedMedia(bytes, contentType, FileNameFor(media, contentType));
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string FileNameFor(InboundMediaReference media, string contentType)
+    {
+        if (!string.IsNullOrWhiteSpace(media.FileName))
+        {
+            return media.FileName;
+        }
+
+        var extension = contentType switch
+        {
+            "image/jpeg" => ".jpg",
+            "image/png" => ".png",
+            "image/webp" => ".webp",
+            "video/mp4" => ".mp4",
+            "audio/ogg" => ".ogg",
+            "audio/mpeg" => ".mp3",
+            "application/pdf" => ".pdf",
+            _ => ".bin",
+        };
+
+        return media.Type.ToString().ToLowerInvariant() + extension;
+    }
     // -------------------------------------------------------------------- helpers --
 
     private static string? GetHeader(IReadOnlyDictionary<string, string> headers, string name) =>

@@ -12,6 +12,7 @@ using Wasla.Channels.Application.Abstractions;
 using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.Channels.Application.Services;
 using Wasla.Channels.Infrastructure.Adapters;
+using Wasla.Channels.Infrastructure.Adapters.Telegram;
 using Wasla.Channels.Infrastructure.Adapters.WhatsApp;
 using Wasla.Channels.Infrastructure.Repositories;
 using Wasla.Channels.Infrastructure.Security;
@@ -47,6 +48,29 @@ public sealed class ChannelsModule : IModule
 
         services.AddScoped<IChannelAdapter>(serviceProvider => serviceProvider.GetRequiredService<WhatsAppCloudAdapter>());
         services.AddScoped<IChannelConnectionVerifier>(serviceProvider => serviceProvider.GetRequiredService<WhatsAppCloudAdapter>());
+
+        services.AddOptions<TelegramOptions>().Bind(configuration.GetSection(TelegramOptions.SectionName));
+
+        services.AddHttpClient<TelegramBotAdapter>((serviceProvider, client) =>
+        {
+            var telegram = serviceProvider.GetRequiredService<IOptions<TelegramOptions>>().Value;
+
+            client.BaseAddress = new Uri(telegram.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, telegram.TimeoutSeconds));
+        });
+
+        services.AddHttpClient<TelegramWebhookRegistrar>((serviceProvider, client) =>
+        {
+            var telegram = serviceProvider.GetRequiredService<IOptions<TelegramOptions>>().Value;
+
+            client.BaseAddress = new Uri(telegram.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, telegram.TimeoutSeconds));
+        });
+
+        services.AddScoped<IChannelAdapter>(serviceProvider => serviceProvider.GetRequiredService<TelegramBotAdapter>());
+        services.AddScoped<IChannelConnectionVerifier>(serviceProvider => serviceProvider.GetRequiredService<TelegramBotAdapter>());
+        services.AddScoped<IChannelWebhookRegistrar>(serviceProvider => serviceProvider.GetRequiredService<TelegramWebhookRegistrar>());
+        services.AddScoped<IChannelWebhookRegistrarRegistry, ChannelWebhookRegistrarRegistry>();
         services.AddScoped<IChannelAdapterRegistry, ChannelAdapterRegistry>();
         services.AddScoped<IChannelConnectionVerifierRegistry, ChannelConnectionVerifierRegistry>();
         services.AddScoped<IChannelRoutingProvider, ChannelRoutingProvider>();

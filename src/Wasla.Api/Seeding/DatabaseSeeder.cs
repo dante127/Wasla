@@ -168,6 +168,9 @@ await services.GetRequiredService<MessagesDbContext>().Database.MigrateAsync();
         await credentialStore.SetAsync(tenant.Id, whatsApp.Id.Value, ChannelCredentialKeys.VerifyToken, "wasla-dev-verify", CancellationToken.None);
         await credentialStore.SetAsync(tenant.Id, whatsApp.Id.Value, ChannelCredentialKeys.PhoneNumberId, "+963991234567", CancellationToken.None);
 
+        await credentialStore.SetAsync(tenant.Id, telegram.Id.Value, ChannelCredentialKeys.AccessToken, "dev-telegram-bot-token", CancellationToken.None);
+        await credentialStore.SetAsync(tenant.Id, telegram.Id.Value, ChannelCredentialKeys.VerifyToken, "wasla-dev-tg-secret", CancellationToken.None);
+
         var laylaConversation = Conversation.Create(tenant.Id, layla.Id.Value, whatsApp.Id.Value, now.AddMinutes(-30));
         laylaConversation.AssignToUser(agent.Id.Value, null, now.AddMinutes(-25));
         laylaConversation.AddTag(vipTag.Id.Value, null, now.AddMinutes(-24));

@@ -142,6 +142,45 @@ public sealed class SolutionStructureTests
         }
     }
 
+    [Fact]
+    public void Provider_specific_payload_identifiers_stay_inside_adapter_code()
+    {
+        string[] markers =
+        [
+            "X-Hub-Signature-256",
+            "hub.verify_token",
+            "hub.challenge",
+            "messaging_product",
+            "X-Telegram-Bot-Api-Secret-Token",
+            "setWebhook",
+            "deleteWebhook",
+            "getFile",
+        ];
+
+        var violations = new List<string>();
+        var separator = Path.DirectorySeparatorChar;
+
+        var files = Directory
+            .EnumerateFiles(Path.Combine(RepoRoot, "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(file => !file.Contains($"{separator}obj{separator}")
+                && !file.Contains($"{separator}bin{separator}")
+                && !file.Contains($"{separator}Adapters{separator}"));
+
+        foreach (var file in files)
+        {
+            var content = File.ReadAllText(file);
+
+            foreach (var marker in markers)
+            {
+                if (content.Contains(marker, StringComparison.Ordinal))
+                {
+                    violations.Add($"{Path.GetRelativePath(RepoRoot, file)} contains '{marker}'");
+                }
+            }
+        }
+
+        Assert.Empty(violations);
+    }
     private static string FindRepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

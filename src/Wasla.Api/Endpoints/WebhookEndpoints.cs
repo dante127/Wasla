@@ -19,6 +19,7 @@ public static class WebhookEndpoints
 
         group.MapGet("/whatsapp/{channelId:guid}", HandleAsync);
         group.MapPost("/whatsapp/{channelId:guid}", HandleAsync);
+        group.MapPost("/telegram/{channelId:guid}", HandleAsync);
     }
 
     private static async Task<IResult> HandleAsync(

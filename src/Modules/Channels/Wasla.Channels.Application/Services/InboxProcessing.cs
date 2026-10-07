@@ -10,6 +10,7 @@ using Wasla.Channels.Application.Abstractions;
 using Wasla.Channels.Domain;
 using Wasla.Conversations.Application.Contracts;
 using Wasla.Customers.Application.Contracts;
+using Wasla.Messages.Application;
 using Wasla.Messages.Application.Abstractions;
 using Wasla.Messages.Domain;
 
@@ -42,6 +43,7 @@ public sealed class InboundEventApplier(
     ICustomerResolver customers,
     IConversationResolver conversations,
     IConversationWriter conversationWriter,
+    InboundMediaRecorder inboundMedia,
     IChannelsUnitOfWork unitOfWork,
     IOptions<WorkerOptions> workerOptions,
     IClock clock) : IInboundEventApplier
@@ -102,7 +104,7 @@ public sealed class InboundEventApplier(
                 switch (normalizedEvent)
                 {
                     case InboundMessageEvent messageEvent:
-                        await ApplyInboundMessageAsync(inboxEvent, channel.Type, messageEvent, cancellationToken);
+                        await ApplyInboundMessageAsync(inboxEvent, channel.Type, adapter, messageEvent, cancellationToken);
                         applied++;
                         break;
 
@@ -137,6 +139,7 @@ public sealed class InboundEventApplier(
     private async Task ApplyInboundMessageAsync(
         InboxEvent inboxEvent,
         ChannelType channelType,
+        IChannelAdapter adapter,
         InboundMessageEvent message,
         CancellationToken cancellationToken)
     {
@@ -158,6 +161,8 @@ public sealed class InboundEventApplier(
                 Preview(message.Body, message.Type),
                 message.SentAt,
                 cancellationToken);
+
+            await EnsureMediaAsync(inboxEvent, adapter, existing, message, cancellationToken);
 
             return;
         }
@@ -200,6 +205,53 @@ public sealed class InboundEventApplier(
             Preview(message.Body, message.Type),
             message.SentAt,
             cancellationToken);
+
+        await EnsureMediaAsync(inboxEvent, adapter, entity, message, cancellationToken);
+    }
+
+    private async Task EnsureMediaAsync(
+        InboxEvent inboxEvent,
+        IChannelAdapter adapter,
+        Message entity,
+        InboundMessageEvent message,
+        CancellationToken cancellationToken)
+    {
+        if (entity.Attachments.Count > 0 || message.Media.Count == 0)
+        {
+            return;
+        }
+
+        if (adapter is not IChannelMediaDownloader downloader)
+        {
+            return;
+        }
+
+        // Media is best-effort: the message itself is already durable, so a failed
+        // download never blocks the event (A22 pipeline; retries on next delivery).
+        foreach (var reference in message.Media.Take(3))
+        {
+            try
+            {
+                var downloaded = await downloader.DownloadAsync(inboxEvent.TenantId, inboxEvent.ChannelId, reference, cancellationToken);
+
+                if (downloaded is null)
+                {
+                    continue;
+                }
+
+                await inboundMedia.RecordAsync(
+                    inboxEvent.TenantId,
+                    entity.Id.Value,
+                    downloaded.Content,
+                    downloaded.ContentType,
+                    downloaded.FileName,
+                    cancellationToken);
+            }
+            catch
+            {
+                // Provider media unavailable; the message stays media-less.
+            }
+        }
     }
 
     private async Task ApplyStatusUpdateAsync(

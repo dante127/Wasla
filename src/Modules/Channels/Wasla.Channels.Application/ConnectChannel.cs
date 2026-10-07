@@ -23,6 +23,7 @@ public sealed class ConnectChannelHandler(
     IChannelRepository channels,
     IChannelCredentialStore credentials,
     IChannelConnectionVerifierRegistry verifiers,
+    IChannelWebhookRegistrarRegistry registrars,
     IChannelsUnitOfWork unitOfWork,
     IClock clock)
 {
@@ -78,6 +79,21 @@ public sealed class ConnectChannelHandler(
         {
             return Result.Failure<ChannelListItem>(
                 new Error("channels.connection_failed", verification.Error ?? "Credential verification failed."));
+        }
+
+        var registrar = registrars.Resolve(channel.Type);
+
+        if (registrar is not null)
+        {
+            try
+            {
+                await registrar.RegisterAsync(tenantId, channelId, new ChannelCredentialDraft(values), cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                return Result.Failure<ChannelListItem>(
+                    new Error("channels.webhook_registration_failed", exception.Message));
+            }
         }
 
         foreach (var (key, value) in values)

@@ -27,8 +27,8 @@ implementation into the core CRM domain. Provider complexity lives at the edges.
 | 3 | Customers (Customer 360) | ✅ Complete |
 | 4 | Conversations (unified inbox core) | ✅ Complete |
 | 5 | WhatsApp channel adapter | ✅ Complete |
-| 6 | Telegram channel adapter | ⏳ Next |
-| 7 | Real-time (SignalR) | ⏳ Planned |
+| 6 | Telegram channel adapter | ✅ Complete |
+| 7 | Real-time (SignalR) | ⏳ Next |
 | 8 | Analytics (basic) | ⏳ Planned |
 | 9 | Hardening (security, isolation, perf, failure testing) | ⏳ Planned |
 

@@ -192,3 +192,38 @@ public interface IChannelRoutingProvider
 {
     Task<ChannelRoutingInfo?> GetRoutingAsync(TenantId tenantId, Guid channelId, CancellationToken cancellationToken);
 }
+
+
+/// <summary>Bytes downloaded from a provider for an inbound media reference.</summary>
+public sealed record DownloadedMedia(byte[] Content, string ContentType, string FileName);
+
+/// <summary>
+/// Optional adapter capability: fetch provider-hosted media bytes (docs/channels.md §6).
+/// Used by the inbound pipeline to persist media through IFileStorage.
+/// </summary>
+public interface IChannelMediaDownloader
+{
+    Task<DownloadedMedia?> DownloadAsync(
+        TenantId tenantId,
+        Guid channelId,
+        InboundMediaReference media,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Optional adapter capability: register/unregister the provider webhook as part of the
+/// channel connect/disconnect flow (docs/webhooks.md §9).
+/// </summary>
+public interface IChannelWebhookRegistrar
+{
+    ChannelType ChannelType { get; }
+
+    Task RegisterAsync(TenantId tenantId, Guid channelId, ChannelCredentialDraft draft, CancellationToken cancellationToken);
+
+    Task UnregisterAsync(TenantId tenantId, Guid channelId, CancellationToken cancellationToken);
+}
+
+public interface IChannelWebhookRegistrarRegistry
+{
+    IChannelWebhookRegistrar? Resolve(ChannelType channelType);
+}

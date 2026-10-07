@@ -38,6 +38,7 @@ public sealed class MessagesModule : IModule
         services.AddScoped<SendMessageHandler>();
         services.AddScoped<ListMessagesHandler>();
         services.AddScoped<UploadMediaHandler>();
+        services.AddScoped<InboundMediaRecorder>();
 
         services.AddScoped<IValidator<SendMessageRequest>, SendMessageValidator>();
     }

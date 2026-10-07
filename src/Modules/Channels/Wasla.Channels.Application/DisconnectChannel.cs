@@ -13,6 +13,7 @@ public sealed class DisconnectChannelHandler(
     ITenantContext tenantContext,
     IChannelRepository channels,
     IChannelCredentialStore credentials,
+    IChannelWebhookRegistrarRegistry registrars,
     IChannelsUnitOfWork unitOfWork)
 {
     private static readonly string[] CredentialKeys =
@@ -36,6 +37,20 @@ public sealed class DisconnectChannelHandler(
         if (channel is null)
         {
             return Result.Failure<ChannelListItem>(new Error("channels.not_found", "Channel not found."));
+        }
+
+        var registrar = registrars.Resolve(channel.Type);
+
+        if (registrar is not null)
+        {
+            try
+            {
+                await registrar.UnregisterAsync(tenantId, channelId, cancellationToken);
+            }
+            catch
+            {
+                // Best-effort: credential removal and disabling proceed regardless.
+            }
         }
 
         foreach (var key in CredentialKeys)
