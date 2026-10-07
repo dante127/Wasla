@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Wasla.BuildingBlocks.Application;
 using Wasla.BuildingBlocks.Application.ChannelAdapters;
+using Wasla.BuildingBlocks.Infrastructure.Observability;
 using Wasla.Channels.Application.Abstractions;
 using Wasla.Channels.Domain;
 
@@ -70,6 +71,8 @@ public sealed class WebhookRequestHandler(
 
         if (await inbox.ExistsByBodyHashAsync(channel.Id.Value, bodyHash, cancellationToken))
         {
+            WaslaMetrics.InboxDuplicates.Add(1);
+
             // Duplicate provider delivery: acknowledge without a second row.
             return new WebhookResult(200, "duplicate");
         }
@@ -86,6 +89,8 @@ public sealed class WebhookRequestHandler(
 
         await inbox.AddAsync(inboxEvent, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        WaslaMetrics.InboxReceived.Add(1);
 
         return new WebhookResult(200, "ok");
     }

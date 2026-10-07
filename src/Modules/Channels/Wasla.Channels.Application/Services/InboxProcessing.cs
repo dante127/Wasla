@@ -7,6 +7,7 @@ using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.BuildingBlocks.Domain;
 using Wasla.BuildingBlocks.Infrastructure;
 using Wasla.BuildingBlocks.Infrastructure.Configuration;
+using Wasla.BuildingBlocks.Infrastructure.Observability;
 using Wasla.Channels.Application.Abstractions;
 using Wasla.Channels.Domain;
 using Wasla.Conversations.Application.Contracts;
@@ -124,10 +125,12 @@ public sealed class InboundEventApplier(
             if (applied == 0)
             {
                 inboxEvent.MarkSkipped(now, "No actionable events in payload.");
+                WaslaMetrics.InboxSkipped.Add(1);
             }
             else
             {
                 inboxEvent.MarkProcessed(now);
+                WaslaMetrics.InboxProcessed.Add(1);
             }
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -319,6 +322,7 @@ public sealed class InboundEventApplier(
             if (inboxEvent.Attempts >= maxAttempts)
             {
                 inboxEvent.MarkDeadLettered(now, $"Retry budget exhausted after {inboxEvent.Attempts} attempts: {truncated}");
+                WaslaMetrics.InboxFailed.Add(1);
             }
             else
             {

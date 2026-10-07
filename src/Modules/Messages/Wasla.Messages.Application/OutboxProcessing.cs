@@ -8,6 +8,7 @@ using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.BuildingBlocks.Infrastructure;
 using Wasla.BuildingBlocks.Domain;
 using Wasla.BuildingBlocks.Infrastructure.Configuration;
+using Wasla.BuildingBlocks.Infrastructure.Observability;
 using Wasla.Conversations.Application.Contracts;
 using Wasla.Messages.Application.Abstractions;
 using Wasla.Messages.Domain;
@@ -243,6 +244,7 @@ public sealed class OutboxMessageDispatcher(
         {
             message.MarkSent(result.ProviderMessageId, now);
             row.MarkProcessed(now);
+            WaslaMetrics.OutboxSent.Add(1);
         }
         else if (result.IsSuccess)
         {
@@ -253,6 +255,7 @@ public sealed class OutboxMessageDispatcher(
         {
             message.MarkFailed(result.FailureReason ?? "Provider rejected the message.", now);
             row.MarkDeadLettered(now, result.FailureReason ?? "Provider rejected the message.");
+            WaslaMetrics.OutboxDeadLettered.Add(1);
         }
         else
         {
@@ -276,6 +279,7 @@ public sealed class OutboxMessageDispatcher(
         if (row.Attempts >= maxAttempts)
         {
             row.MarkDeadLettered(now, $"Retry budget exhausted after {row.Attempts} attempts: {error}");
+            WaslaMetrics.OutboxDeadLettered.Add(1);
 
             // The message outcome is uncertain; it will be reconciled by status webhooks.
             await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -286,6 +290,7 @@ public sealed class OutboxMessageDispatcher(
         var backoff = retryAfter ?? TimeSpan.FromSeconds(Math.Min(300, Math.Pow(2, Math.Min(row.Attempts, 8))));
 
         row.Reschedule(now, backoff, error);
+        WaslaMetrics.OutboxRetried.Add(1);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 

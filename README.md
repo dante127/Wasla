@@ -30,7 +30,9 @@ implementation into the core CRM domain. Provider complexity lives at the edges.
 | 6 | Telegram channel adapter | ✅ Complete |
 | 7 | Real-time (SignalR) | ✅ Complete |
 | 8 | Analytics (basic) | ✅ Complete |
-| 9 | Hardening (security, isolation, perf, failure testing) | ⏳ Next |
+| 9 | Hardening (security, isolation, perf, failure testing) | ✅ Complete |
+
+**MVP scope (Phases 0-9) complete.** Ops: [docs/runbook.md](docs/runbook.md) - Phase 9 evidence: [docs/hardening-report.md](docs/hardening-report.md).
 
 Post-MVP (designed for, not built): Campaigns, Automation, Bot Builder, Commerce,
 Billing, AI capabilities, Instagram/Facebook/Email/SMS adapters, advanced analytics.

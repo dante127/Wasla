@@ -27,6 +27,7 @@ public sealed class ConversationConfiguration : IEntityTypeConfiguration<Convers
         builder.HasIndex(conversation => new { conversation.TenantId, conversation.AssignedUserId });
         builder.HasIndex(conversation => new { conversation.TenantId, conversation.AssignedTeamId });
         builder.HasIndex(conversation => new { conversation.TenantId, conversation.CustomerId });
+        builder.HasIndex(conversation => new { conversation.TenantId, conversation.CustomerId, conversation.ChannelId });
 
         builder.HasMany(conversation => conversation.Tags)
             .WithOne()

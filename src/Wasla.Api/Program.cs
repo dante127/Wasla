@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -25,6 +26,7 @@ using Wasla.BuildingBlocks.Application.Contracts;
 using Wasla.BuildingBlocks.Application.Security;
 using Wasla.BuildingBlocks.Application.Abstractions;
 using Wasla.BuildingBlocks.Infrastructure;
+using Wasla.BuildingBlocks.Infrastructure.Observability;
 using Wasla.BuildingBlocks.Infrastructure.Security;
 using Wasla.Api.Workers;
 using Wasla.BuildingBlocks.Infrastructure.Configuration;
@@ -46,6 +48,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // WASLA_-prefixed environment variables override configuration (see .env.example).
 builder.Configuration.AddEnvironmentVariables(prefix: "WASLA_");
+
+// Hardening: bound request bodies at the edge (media uploads cap at 25 MB).
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 30L * 1024 * 1024);
 
 // Structured logging (JSON console) via Serilog; levels come from appsettings.
 builder.Host.UseSerilog((context, services, configuration) => configuration
@@ -158,6 +163,33 @@ builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
+// Hardening: strict fixed-window rate limiting for auth endpoints (config-disabled in tests).
+// Settings are bound via options and resolved per request so test configuration applies.
+builder.Services
+    .AddOptions<RateLimitingOptions>()
+    .Bind(builder.Configuration.GetSection(RateLimitingOptions.SectionName));
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", context =>
+    {
+        var settings = context.RequestServices.GetRequiredService<IOptions<RateLimitingOptions>>().Value;
+        var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        return settings.Enabled
+            ? RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = Math.Max(1, settings.AuthPermitLimit),
+                    Window = TimeSpan.FromSeconds(Math.Max(1, settings.AuthWindowSeconds)),
+                    QueueLimit = 0,
+                })
+            : RateLimitPartition.GetNoLimiter(partitionKey);
+    });
+});
+
 // ------------------------------------------------------------- telemetry ----
 var telemetryOptions = builder.Configuration
     .GetSection(TelemetryOptions.SectionName)
@@ -173,7 +205,8 @@ openTelemetry.WithTracing(tracing => tracing
 
 openTelemetry.WithMetrics(metrics => metrics
     .AddAspNetCoreInstrumentation()
-    .AddRuntimeInstrumentation());
+    .AddRuntimeInstrumentation()
+    .AddMeter(WaslaMetrics.MeterName));
 
 if (!string.IsNullOrWhiteSpace(telemetryOptions.OtlpEndpoint))
 {
@@ -238,12 +271,14 @@ if (args.Contains("--seed"))
     return;
 }
 
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseCors("frontend");
 app.UseAuthentication();
 app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/live", new HealthCheckOptions

@@ -33,7 +33,8 @@ public static class AuthEndpoints
                 _ => Results.StatusCode(StatusCodes.Status500InternalServerError),
             };
         })
-        .AddEndpointFilter<ValidationFilter<LoginRequest>>();
+        .AddEndpointFilter<ValidationFilter<LoginRequest>>()
+        .RequireRateLimiting("auth");
 
         group.MapPost("/refresh", async (
             RefreshRequest request,
@@ -45,7 +46,8 @@ public static class AuthEndpoints
 
             return result.IsSuccess ? Results.Ok(result.Value) : ApiResults.Problem(httpContext, result.Error);
         })
-        .AddEndpointFilter<ValidationFilter<RefreshRequest>>();
+        .AddEndpointFilter<ValidationFilter<RefreshRequest>>()
+        .RequireRateLimiting("auth");
 
         group.MapPost("/logout", async (
             RefreshRequest request,
@@ -56,7 +58,8 @@ public static class AuthEndpoints
 
             return Results.NoContent();
         })
-        .AddEndpointFilter<ValidationFilter<RefreshRequest>>();
+        .AddEndpointFilter<ValidationFilter<RefreshRequest>>()
+        .RequireRateLimiting("auth");
 
         group.MapGet("/me", async (
             MeHandler handler,

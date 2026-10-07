@@ -394,6 +394,7 @@ await services.GetRequiredService<AnalyticsDbContext>().Database.MigrateAsync();
                     ["Workers:AnalyticsEnabled"] = "false",
                     ["Telegram:BaseUrl"] = "http://127.0.0.1:9/",
                     ["Telegram:SkipConnectVerification"] = "true",
+                    ["RateLimiting:Enabled"] = "false",
                 });
             });
 
@@ -433,6 +434,25 @@ await services.GetRequiredService<AnalyticsDbContext>().Database.MigrateAsync();
         public IReadOnlyList<InboundMediaReference> MediaDownloads
         {
             get { lock (_gate) { return _mediaDownloads.ToList(); } }
+        }
+
+        public int FailuresRemaining { get; private set; }
+
+        public void FailNext(int count) => FailuresRemaining = Math.Max(0, count);
+
+        public bool TryConsumeFailure()
+        {
+            lock (_gate)
+            {
+                if (FailuresRemaining <= 0)
+                {
+                    return false;
+                }
+
+                FailuresRemaining--;
+
+                return true;
+            }
         }
 
         public void Record(ChannelOutboundMessage message)
@@ -483,6 +503,11 @@ await services.GetRequiredService<AnalyticsDbContext>().Database.MigrateAsync();
 
         public Task<ChannelSendResult> SendMessageAsync(ChannelOutboundMessage message, CancellationToken cancellationToken)
         {
+            if (sink.TryConsumeFailure())
+            {
+                return Task.FromResult(ChannelSendResult.Failure(ChannelSendFailureKind.Transient, "simulated transient failure"));
+            }
+
             sink.Record(message);
 
             return Task.FromResult(ChannelSendResult.Success($"wamid.TEST-{message.MessageId:N}"));
